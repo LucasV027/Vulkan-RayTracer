@@ -36,6 +36,9 @@ void Application::InitWindow() {
 
 void Application::InitVulkan() {
     CreateVkInstance();
+    CreateSurface();
+    PickPhysicalDevice();
+    CreateLogicalDevice();
 }
 
 void Application::CreateVkInstance() {
@@ -97,8 +100,125 @@ void Application::CreateVkInstance() {
 #endif
 }
 
+void Application::CreateSurface() {
+    VkSurfaceKHR rawSurface;
+    if (glfwCreateWindowSurface(context.instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create window surface.");
+    }
+
+    context.surface = vk::SurfaceKHR(rawSurface);
+}
+
+void Application::PickPhysicalDevice() {
+    std::vector<vk::PhysicalDevice> gpus = context.instance.enumeratePhysicalDevices();
+    if (gpus.empty()) throw std::runtime_error("No Vulkan-compatible GPU found.");
+
+
+    for (const auto& gpu : gpus) {
+        vk::PhysicalDeviceProperties properties = gpu.getProperties();
+        if (properties.apiVersion < vk::ApiVersion13) {
+            LOGW("Physical device '{}' does not support Vulkan 1.3, skipping.", properties.deviceName.data());
+            continue;
+        }
+
+        auto queueFamilies = gpu.getQueueFamilyProperties();
+
+        for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
+            const auto& queueFamily = queueFamilies[i];
+
+            bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
+            bool supportsPresent = false;
+
+            if (supportsGraphics) {
+                supportsPresent = gpu.getSurfaceSupportKHR(i, context.surface);
+            }
+
+            if (supportsGraphics && supportsPresent) {
+                context.graphicsQueueIndex = i;
+                context.gpu = gpu;
+
+                LOGI("Selected GPU: '{}'", properties.deviceName.data());
+                return;
+            }
+        }
+    }
+
+    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics + present support).");
+}
+
+void Application::CreateLogicalDevice() {
+    // Check extensions support
+    auto supportedExtensions = context.gpu.enumerateDeviceExtensionProperties();
+    std::vector<const char*> requiredExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    for (const char* ext : requiredExtensions) {
+        bool found = std::ranges::any_of(supportedExtensions, [&](const auto& e) {
+            return strcmp(e.extensionName, ext) == 0;
+        });
+        if (!found) {
+            throw std::runtime_error(std::string("Missing required extension: ") + ext);
+        }
+    }
+
+    // Check supported features
+    auto features = context.gpu.getFeatures2<
+        vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+
+    if (!features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering ||
+        !features.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 ||
+        !features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState) {
+        throw std::runtime_error("Required Vulkan features not supported.");
+    }
+
+    vk::StructureChain<vk::PhysicalDeviceFeatures2,
+                       vk::PhysicalDeviceVulkan13Features,
+                       vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> enabledFeatures = {
+        {}, {.synchronization2 = true, .dynamicRendering = true}, {.extendedDynamicState = true}
+    };
+
+    float queuePriority = 1.0f;
+    vk::DeviceQueueCreateInfo queueCreateInfo{
+        .queueFamilyIndex = static_cast<uint32_t>(context.graphicsQueueIndex),
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority
+    };
+
+    vk::DeviceCreateInfo deviceCreateInfo{
+        .pNext = &enabledFeatures.get<vk::PhysicalDeviceFeatures2>(),
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queueCreateInfo,
+        .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
+        .ppEnabledExtensionNames = requiredExtensions.data()
+    };
+
+#ifndef NDEBUG
+    std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+    deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+    deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+#endif
+
+    context.device = context.gpu.createDevice(deviceCreateInfo);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
+    context.queue = context.device.getQueue(context.graphicsQueueIndex, 0);
+}
+
 void Application::Cleanup() const {
     // Vulkan Cleanup
+    // Don't release anything until the GPU is completely idle.
+    if (context.device) {
+        context.device.waitIdle();
+    }
+
+    if (context.surface) {
+        context.instance.destroySurfaceKHR(context.surface);
+    }
+
+    if (context.device) {
+        context.device.destroy();
+    }
+
     if (context.debugCallback) {
         context.instance.destroyDebugUtilsMessengerEXT(context.debugCallback);
     }
