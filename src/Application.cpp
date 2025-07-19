@@ -1,7 +1,5 @@
 #include "Application.h"
 
-#include <iostream>
-
 Application::Application() {
     InitWindow();
     InitVulkan();
@@ -19,7 +17,7 @@ Application::~Application() {
 
 void Application::InitWindow() {
     if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+        LOGE("Failed to initialize GLFW");
         exit(1);
     }
 
@@ -29,7 +27,7 @@ void Application::InitWindow() {
     window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
-        std::cerr << "Failed to create GLFW window" << std::endl;
+        LOGE("Failed to create GLFW window");
         exit(1);
     }
 }
@@ -228,12 +226,17 @@ void Application::CreateSwapChain() {
     }
 
     vk::Extent2D extent;
-    extent.width = std::clamp(context.swapChainDimensions.width,
-                              capabilities.minImageExtent.width,
-                              capabilities.maxImageExtent.width);
-    extent.height = std::clamp(context.swapChainDimensions.height,
-                               capabilities.minImageExtent.height,
-                               capabilities.maxImageExtent.height);
+    if (capabilities.currentExtent.width == UINT32_MAX) {
+        extent.width = std::clamp(context.swapChainDimensions.width,
+                                  capabilities.minImageExtent.width,
+                                  capabilities.maxImageExtent.width);
+        extent.height = std::clamp(context.swapChainDimensions.height,
+                                   capabilities.minImageExtent.height,
+                                   capabilities.maxImageExtent.height);
+    } else {
+        extent = capabilities.currentExtent;
+    }
+
 
     const uint32_t imageCount = std::clamp(3u, capabilities.minImageCount,
                                            capabilities.maxImageCount > 0 ? capabilities.maxImageCount : 3u);
@@ -255,6 +258,20 @@ void Application::CreateSwapChain() {
 
     context.swapChain = context.device.createSwapchainKHR(createInfo);
     context.swapChainImages = context.device.getSwapchainImagesKHR(context.swapChain);
+
+    for (auto const& swapChainImage : context.swapChainImages) {
+        vk::ImageViewCreateInfo viewCreateInfo{
+            .image = swapChainImage,
+            .viewType = vk::ImageViewType::e2D,
+            .format = context.swapChainDimensions.format,
+            .subresourceRange = {
+                .aspectMask = vk::ImageAspectFlagBits::eColor, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
+
+        context.swapChainImagesViews.push_back(context.device.createImageView(viewCreateInfo));
+    }
 }
 
 void Application::Cleanup() const {
@@ -262,6 +279,10 @@ void Application::Cleanup() const {
     // Don't release anything until the GPU is completely idle.
     if (context.device) {
         context.device.waitIdle();
+    }
+
+    for (vk::ImageView imageView : context.swapChainImagesViews) {
+        context.device.destroyImageView(imageView);
     }
 
     if (context.swapChain) {

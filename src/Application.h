@@ -41,6 +41,7 @@ private:
 
         vk::SwapchainKHR swapChain = nullptr;
         std::vector<vk::Image> swapChainImages;
+        std::vector<vk::ImageView> swapChainImagesViews;
 
         struct {
             uint32_t width = 0;
