@@ -45,3 +45,6 @@
 cmake-build*
 .vs
 .vscode
+
+# Compiled shaders
+*.spv

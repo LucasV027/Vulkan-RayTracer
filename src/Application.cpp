@@ -2,6 +2,8 @@
 
 #include <set>
 
+#include "Utils.h"
+
 Application::Application() {
     InitWindow();
     InitVulkan();
@@ -35,7 +37,7 @@ void Application::InitWindow() {
 }
 
 void Application::InitVulkan() {
-    CreateVkInstance();
+    CreateInstance();
     CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
@@ -46,9 +48,11 @@ void Application::InitVulkan() {
     context.swapChainDimensions.height = height;
 
     CreateSwapChain();
+
+    CreatePipeline();
 }
 
-void Application::CreateVkInstance() {
+void Application::CreateInstance() {
     static vk::detail::DynamicLoader loader;
     auto vkGetInstanceProcAddr = loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -300,6 +304,20 @@ void Application::CreateSwapChain() {
 
         context.swapChainImagesViews.push_back(context.device.createImageView(viewCreateInfo));
     }
+}
+
+void Application::CreatePipeline() {
+    auto vertShaderCode = Utils::ReadBinaryFile("../shaders/main.vert.spv");
+    if (!vertShaderCode) {
+        LOGE("{}", vertShaderCode.error());
+    }
+
+    auto fragShaderCode = Utils::ReadBinaryFile("../shaders/main.frag.spv");
+    if (!fragShaderCode) {
+        LOGE("{}", fragShaderCode.error());
+    }
+
+    if (!vertShaderCode || !fragShaderCode) return;
 }
 
 void Application::Cleanup() const {

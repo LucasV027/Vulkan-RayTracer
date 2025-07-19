@@ -17,11 +17,12 @@ private:
     void InitWindow();
 
     void InitVulkan();
-    void CreateVkInstance();
+    void CreateInstance();
     void CreateSurface();
     void PickPhysicalDevice();
     void CreateLogicalDevice();
     void CreateSwapChain();
+    void CreatePipeline();
 
     void Cleanup() const;
 

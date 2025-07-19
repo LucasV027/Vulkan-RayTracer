@@ -10,6 +10,8 @@ add_executable(${PROJECT_NAME}
         src/Vulkan.cpp
         src/Vulkan.h
         src/Log.h
+        src/Utils.h
+        src/Utils.cpp
 )
 
 include(Dependencies.cmake)
