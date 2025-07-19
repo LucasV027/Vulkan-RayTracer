@@ -21,6 +21,7 @@ private:
     void CreateSurface();
     void PickPhysicalDevice();
     void CreateLogicalDevice();
+    void CreateSwapChain();
 
     void Cleanup() const;
 
@@ -37,5 +38,14 @@ private:
         int32_t graphicsQueueIndex = -1;
         vk::Device device = nullptr;
         vk::Queue queue = nullptr;
+
+        vk::SwapchainKHR swapChain = nullptr;
+        std::vector<vk::Image> swapChainImages;
+
+        struct {
+            uint32_t width = 0;
+            uint32_t height = 0;
+            vk::Format format = vk::Format::eUndefined;
+        } swapChainDimensions;
     } context;
 };

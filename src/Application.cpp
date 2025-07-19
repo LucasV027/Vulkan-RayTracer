@@ -39,6 +39,13 @@ void Application::InitVulkan() {
     CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
+
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    context.swapChainDimensions.width = width;
+    context.swapChainDimensions.height = height;
+
+    CreateSwapChain();
 }
 
 void Application::CreateVkInstance() {
@@ -193,15 +200,61 @@ void Application::CreateLogicalDevice() {
         .ppEnabledExtensionNames = requiredExtensions.data()
     };
 
-#ifndef NDEBUG
-    std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-    deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-    deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
-#endif
-
     context.device = context.gpu.createDevice(deviceCreateInfo);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
     context.queue = context.device.getQueue(context.graphicsQueueIndex, 0);
+}
+
+void Application::CreateSwapChain() {
+    vk::SurfaceCapabilitiesKHR capabilities = context.gpu.getSurfaceCapabilitiesKHR(context.surface);
+    auto formats = context.gpu.getSurfaceFormatsKHR(context.surface);
+    auto presentModes = context.gpu.getSurfacePresentModesKHR(context.surface);
+
+    vk::SurfaceFormatKHR surfaceFormat = formats[0];
+    for (const auto& availableFormat : formats) {
+        if (availableFormat.format == vk::Format::eB8G8R8A8Unorm &&
+            availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            surfaceFormat = availableFormat;
+            break;
+        }
+    }
+
+    auto presentMode = vk::PresentModeKHR::eFifo;
+    for (const auto& availablePresentMode : presentModes) {
+        if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+            presentMode = availablePresentMode;
+            break;
+        }
+    }
+
+    vk::Extent2D extent;
+    extent.width = std::clamp(context.swapChainDimensions.width,
+                              capabilities.minImageExtent.width,
+                              capabilities.maxImageExtent.width);
+    extent.height = std::clamp(context.swapChainDimensions.height,
+                               capabilities.minImageExtent.height,
+                               capabilities.maxImageExtent.height);
+
+    const uint32_t imageCount = std::clamp(3u, capabilities.minImageCount,
+                                           capabilities.maxImageCount > 0 ? capabilities.maxImageCount : 3u);
+
+    vk::SwapchainCreateInfoKHR createInfo{
+        .surface = context.surface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageSharingMode = vk::SharingMode::eExclusive,
+        .preTransform = capabilities.currentTransform,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        .presentMode = presentMode,
+        .clipped = true
+    };
+
+    context.swapChain = context.device.createSwapchainKHR(createInfo);
+    context.swapChainImages = context.device.getSwapchainImagesKHR(context.swapChain);
 }
 
 void Application::Cleanup() const {
@@ -209,6 +262,10 @@ void Application::Cleanup() const {
     // Don't release anything until the GPU is completely idle.
     if (context.device) {
         context.device.waitIdle();
+    }
+
+    if (context.swapChain) {
+        context.device.destroySwapchainKHR(context.swapChain);
     }
 
     if (context.surface) {
