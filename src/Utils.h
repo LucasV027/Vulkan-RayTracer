@@ -18,9 +18,8 @@ namespace Utils {
         std::filesystem::path path;
     };
 
-    using FileContent = std::vector<std::byte>;
-
-    std::expected<FileContent, FileError> ReadBinaryFile(const std::filesystem::path& path);
+    std::expected<std::vector<std::byte>, FileError> ReadBinaryFile(const std::filesystem::path& path);
+    std::expected<std::vector<uint32_t>, FileError> ReadSpirvFile(const std::filesystem::path& path) ;
 }
 
 template <>

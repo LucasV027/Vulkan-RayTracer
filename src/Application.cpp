@@ -3,6 +3,7 @@
 #include <set>
 
 #include "Utils.h"
+#include "Log.h"
 
 Application::Application() {
     InitWindow();
@@ -49,7 +50,7 @@ void Application::InitVulkan() {
 
     CreateSwapChain();
 
-    CreatePipeline();
+    CreateGraphicsPipeline();
 }
 
 void Application::CreateInstance() {
@@ -87,7 +88,7 @@ void Application::CreateInstance() {
         .messageType =
         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
         vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
-        .pfnUserCallback = vkd::DebugCallback
+        .pfnUserCallback = vkHelpers::DebugCallback
     };
 #endif
 
@@ -306,18 +307,148 @@ void Application::CreateSwapChain() {
     }
 }
 
-void Application::CreatePipeline() {
-    auto vertShaderCode = Utils::ReadBinaryFile("../shaders/main.vert.spv");
-    if (!vertShaderCode) {
-        LOGE("{}", vertShaderCode.error());
-    }
+void Application::CreateGraphicsPipeline() {
+    context.graphicsPipelineLayout = context.device.createPipelineLayout({});
 
-    auto fragShaderCode = Utils::ReadBinaryFile("../shaders/main.frag.spv");
-    if (!fragShaderCode) {
-        LOGE("{}", fragShaderCode.error());
-    }
+    vk::VertexInputBindingDescription bindingDescription{
+        .binding = 0,
+        .stride = 5 * sizeof(float),
+        .inputRate = vk::VertexInputRate::eVertex
+    };
 
-    if (!vertShaderCode || !fragShaderCode) return;
+    // Define the vertex input attribute descriptions
+    std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions = {
+        {
+            {
+                .location = 0,
+                .binding = 0,
+                .format = vk::Format::eR32G32Sfloat,
+                .offset = 0
+            },
+            // position
+            {
+                .location = 1,
+                .binding = 0,
+                .format = vk::Format::eR32G32B32Sfloat,
+                .offset = 2 * sizeof(float),
+            } // color
+        }
+    };
+
+    // Create the vertex input state
+    vk::PipelineVertexInputStateCreateInfo vertexInput{
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDescription,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+        .pVertexAttributeDescriptions = attributeDescriptions.data()
+    };
+
+
+    // Specify we will use triangle lists to draw geometry.
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+        .topology = vk::PrimitiveTopology::eTriangleList
+    };
+
+    // Specify rasterization state.
+    vk::PipelineRasterizationStateCreateInfo raster{
+        .polygonMode = vk::PolygonMode::eFill,
+        .lineWidth = 1.0f
+    };
+
+    // Specify that these states will be dynamic, i.e. not part of pipeline state object.
+    std::vector<vk::DynamicState> dynamicStates = {
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor,
+        vk::DynamicState::eCullMode,
+        vk::DynamicState::eFrontFace,
+        vk::DynamicState::ePrimitiveTopology
+    };
+
+    vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo{
+        .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data()
+    };
+
+
+    // Our attachment will write to all color channels, but no blending is enabled.
+    vk::PipelineColorBlendAttachmentState blendAttachment{
+        .colorWriteMask =
+        vk::ColorComponentFlagBits::eR |
+        vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB |
+        vk::ColorComponentFlagBits::eA
+    };
+
+    vk::PipelineColorBlendStateCreateInfo blend{
+        .attachmentCount = 1,
+        .pAttachments = &blendAttachment
+    };
+
+    // We will have one viewport and scissor box.
+    vk::PipelineViewportStateCreateInfo viewport{
+        .viewportCount = 1,
+        .scissorCount = 1
+    };
+
+    // Disable all depth testing.
+    vk::PipelineDepthStencilStateCreateInfo depthStencil{
+        .depthCompareOp = vk::CompareOp::eAlways
+    };
+
+    // No multisampling.
+    vk::PipelineMultisampleStateCreateInfo multisample{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1
+    };
+
+
+    vk::ShaderModule vertShaderModule = vkHelpers::CreateShaderModule(context.device, "../shaders/main.vert.spv");
+    vk::ShaderModule fragShaderModule = vkHelpers::CreateShaderModule(context.device, "../shaders/main.frag.spv");
+
+    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
+        {
+            {
+                .stage = vk::ShaderStageFlagBits::eVertex,
+                .module = vertShaderModule,
+                .pName = "main"
+            },
+            {
+                .stage = vk::ShaderStageFlagBits::eFragment,
+                .module = fragShaderModule,
+                .pName = "main"
+            }
+        }
+    };
+
+    // Pipeline rendering info (for dynamic rendering).
+    vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &context.swapChainDimensions.format
+    };
+
+    // Create the graphics pipeline.
+    vk::GraphicsPipelineCreateInfo pipeline_create_info{
+        .pNext = &pipelineRenderingInfo,
+        .stageCount = static_cast<uint32_t>(shaderStages.size()),
+        .pStages = shaderStages.data(),
+        .pVertexInputState = &vertexInput,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewport,
+        .pRasterizationState = &raster,
+        .pMultisampleState = &multisample,
+        .pDepthStencilState = &depthStencil,
+        .pColorBlendState = &blend,
+        .pDynamicState = &dynamicStateCreateInfo,
+        .layout = context.graphicsPipelineLayout, // We need to specify the pipeline layout description up front as well.
+        .renderPass = VK_NULL_HANDLE,     // Since we are using dynamic rendering this will set as null
+        .subpass = 0,
+    };
+
+    vk::Result result;
+    std::tie(result, context.graphicsPipeline) = context.device.createGraphicsPipeline(nullptr, pipeline_create_info);
+    assert(result == vk::Result::eSuccess);
+
+    context.device.destroyShaderModule(vertShaderModule);
+    context.device.destroyShaderModule(fragShaderModule);
 }
 
 void Application::Cleanup() const {
@@ -325,6 +456,14 @@ void Application::Cleanup() const {
     // Don't release anything until the GPU is completely idle.
     if (context.device) {
         context.device.waitIdle();
+    }
+
+    if (context.graphicsPipeline) {
+        context.device.destroyPipeline(context.graphicsPipeline);
+    }
+
+    if (context.graphicsPipelineLayout) {
+        context.device.destroyPipelineLayout(context.graphicsPipelineLayout);
     }
 
     for (vk::ImageView imageView : context.swapChainImagesViews) {

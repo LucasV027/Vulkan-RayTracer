@@ -22,7 +22,7 @@ private:
     void PickPhysicalDevice();
     void CreateLogicalDevice();
     void CreateSwapChain();
-    void CreatePipeline();
+    void CreateGraphicsPipeline();
 
     void Cleanup() const;
 
@@ -53,5 +53,8 @@ private:
             uint32_t height = 0;
             vk::Format format = vk::Format::eUndefined;
         } swapChainDimensions;
+
+        vk::PipelineLayout graphicsPipelineLayout;
+        vk::Pipeline graphicsPipeline;
     } context;
 };
