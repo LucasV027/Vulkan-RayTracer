@@ -45,8 +45,8 @@ void Application::InitVulkan() {
 
     int width, height;
     glfwGetWindowSize(window, &width, &height);
-    context.swapChainDimensions.width = width;
-    context.swapChainDimensions.height = height;
+    ctx.graphics.swapChain.dimensions.width = width;
+    ctx.graphics.swapChain.dimensions.height = height;
 
     CreateSwapChain();
 
@@ -104,25 +104,25 @@ void Application::CreateInstance() {
     instanceCreateInfo.pNext = &debugCreateInfo;
 #endif
 
-    context.instance = vk::createInstance(instanceCreateInfo);
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(context.instance);
+    ctx.instance = vk::createInstance(instanceCreateInfo);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(ctx.instance);
 
 #ifndef NDEBUG
-    context.debugCallback = context.instance.createDebugUtilsMessengerEXT(debugCreateInfo);
+    ctx.debugCallback = ctx.instance.createDebugUtilsMessengerEXT(debugCreateInfo);
 #endif
 }
 
 void Application::CreateSurface() {
     VkSurfaceKHR rawSurface;
-    if (glfwCreateWindowSurface(context.instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(ctx.instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create window surface.");
     }
 
-    context.surface = vk::SurfaceKHR(rawSurface);
+    ctx.surface = vk::SurfaceKHR(rawSurface);
 }
 
 void Application::PickPhysicalDevice() {
-    std::vector<vk::PhysicalDevice> gpus = context.instance.enumeratePhysicalDevices();
+    std::vector<vk::PhysicalDevice> gpus = ctx.instance.enumeratePhysicalDevices();
     if (gpus.empty()) throw std::runtime_error("No Vulkan-compatible GPU found.");
 
 
@@ -143,26 +143,26 @@ void Application::PickPhysicalDevice() {
             const bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
             const bool supportsCompute = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eCompute);
 
-            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, context.surface) && !foundGraphics) {
-                context.graphicsQueueIndex = i;
+            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, ctx.surface) && !foundGraphics) {
+                ctx.graphics.queueIndex = i;
                 foundGraphics = true;
             }
 
             // Prefer a compute-only queue
             if (supportsCompute && !(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) && !foundCompute) {
-                context.computeQueueIndex = i;
+                ctx.compute.queueIndex = i;
                 foundCompute = true;
             }
         }
 
         if (!foundCompute && foundGraphics) {
-            context.computeQueueIndex = context.graphicsQueueIndex;
+            ctx.compute.queueIndex = ctx.graphics.queueIndex;
             foundCompute = true;
             LOGI("No dedicated compute queue found, fallback to graphics queue");
         }
 
         if (foundGraphics && foundCompute) {
-            context.gpu = gpu;
+            ctx.gpu = gpu;
             LOGI("Selected GPU: '{}'", properties.deviceName.data());
             return;
         }
@@ -173,7 +173,7 @@ void Application::PickPhysicalDevice() {
 
 void Application::CreateLogicalDevice() {
     // Check extensions support
-    auto supportedExtensions = context.gpu.enumerateDeviceExtensionProperties();
+    auto supportedExtensions = ctx.gpu.enumerateDeviceExtensionProperties();
     std::vector<const char*> requiredExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     for (const char* ext : requiredExtensions) {
@@ -186,7 +186,7 @@ void Application::CreateLogicalDevice() {
     }
 
     // Check supported features
-    auto features = context.gpu.getFeatures2<
+    auto features = ctx.gpu.getFeatures2<
         vk::PhysicalDeviceFeatures2,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
@@ -205,7 +205,7 @@ void Application::CreateLogicalDevice() {
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {
-        context.graphicsQueueIndex, context.computeQueueIndex
+        ctx.graphics.queueIndex, ctx.compute.queueIndex
     };
 
     float queuePriority = 1.0f;
@@ -226,16 +226,16 @@ void Application::CreateLogicalDevice() {
     };
 
 
-    context.device = context.gpu.createDevice(deviceCreateInfo);
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
-    context.graphicsQueue = context.device.getQueue(context.graphicsQueueIndex, 0);
-    context.computeQueue = context.device.getQueue(context.computeQueueIndex, 0);
+    ctx.device = ctx.gpu.createDevice(deviceCreateInfo);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(ctx.device);
+    ctx.graphics.queue = ctx.device.getQueue(ctx.graphics.queueIndex, 0);
+    ctx.compute.queue = ctx.device.getQueue(ctx.compute.queueIndex, 0);
 }
 
 void Application::CreateSwapChain() {
-    vk::SurfaceCapabilitiesKHR capabilities = context.gpu.getSurfaceCapabilitiesKHR(context.surface);
-    auto formats = context.gpu.getSurfaceFormatsKHR(context.surface);
-    auto presentModes = context.gpu.getSurfacePresentModesKHR(context.surface);
+    vk::SurfaceCapabilitiesKHR capabilities = ctx.gpu.getSurfaceCapabilitiesKHR(ctx.surface);
+    auto formats = ctx.gpu.getSurfaceFormatsKHR(ctx.surface);
+    auto presentModes = ctx.gpu.getSurfacePresentModesKHR(ctx.surface);
 
     vk::SurfaceFormatKHR surfaceFormat = formats[0];
     for (const auto& availableFormat : formats) {
@@ -246,7 +246,7 @@ void Application::CreateSwapChain() {
         }
     }
 
-    context.swapChainDimensions.format = surfaceFormat.format;
+    ctx.graphics.swapChain.dimensions.format = surfaceFormat.format;
 
     auto presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& availablePresentMode : presentModes) {
@@ -258,10 +258,10 @@ void Application::CreateSwapChain() {
 
     vk::Extent2D extent;
     if (capabilities.currentExtent.width == UINT32_MAX) {
-        extent.width = std::clamp(context.swapChainDimensions.width,
+        extent.width = std::clamp(ctx.graphics.swapChain.dimensions.width,
                                   capabilities.minImageExtent.width,
                                   capabilities.maxImageExtent.width);
-        extent.height = std::clamp(context.swapChainDimensions.height,
+        extent.height = std::clamp(ctx.graphics.swapChain.dimensions.height,
                                    capabilities.minImageExtent.height,
                                    capabilities.maxImageExtent.height);
     } else {
@@ -275,7 +275,7 @@ void Application::CreateSwapChain() {
     imageCount = std::max(imageCount, capabilities.minImageCount);
 
     vk::SwapchainCreateInfoKHR createInfo{
-        .surface = context.surface,
+        .surface = ctx.surface,
         .minImageCount = imageCount,
         .imageFormat = surfaceFormat.format,
         .imageColorSpace = surfaceFormat.colorSpace,
@@ -289,26 +289,26 @@ void Application::CreateSwapChain() {
         .clipped = true
     };
 
-    context.swapChain = context.device.createSwapchainKHR(createInfo);
-    context.swapChainImages = context.device.getSwapchainImagesKHR(context.swapChain);
+    ctx.graphics.swapChain.handle = ctx.device.createSwapchainKHR(createInfo);
+    ctx.graphics.swapChain.images = ctx.device.getSwapchainImagesKHR(ctx.graphics.swapChain.handle);
 
-    for (auto const& swapChainImage : context.swapChainImages) {
+    for (auto const& swapChainImage : ctx.graphics.swapChain.images) {
         vk::ImageViewCreateInfo viewCreateInfo{
             .image = swapChainImage,
             .viewType = vk::ImageViewType::e2D,
-            .format = context.swapChainDimensions.format,
+            .format = ctx.graphics.swapChain.dimensions.format,
             .subresourceRange = {
                 .aspectMask = vk::ImageAspectFlagBits::eColor, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0,
                 .layerCount = 1
             }
         };
 
-        context.swapChainImagesViews.push_back(context.device.createImageView(viewCreateInfo));
+        ctx.graphics.swapChain.imagesViews.push_back(ctx.device.createImageView(viewCreateInfo));
     }
 }
 
 void Application::CreateGraphicsPipeline() {
-    context.graphicsPipelineLayout = context.device.createPipelineLayout({});
+    ctx.graphics.pipelineLayout = ctx.device.createPipelineLayout({});
 
     vk::VertexInputBindingDescription bindingDescription{
         .binding = 0,
@@ -401,8 +401,8 @@ void Application::CreateGraphicsPipeline() {
     };
 
 
-    vk::ShaderModule vertShaderModule = vkHelpers::CreateShaderModule(context.device, "../shaders/main.vert.spv");
-    vk::ShaderModule fragShaderModule = vkHelpers::CreateShaderModule(context.device, "../shaders/main.frag.spv");
+    vk::ShaderModule vertShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.vert.spv");
+    vk::ShaderModule fragShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.frag.spv");
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         {
@@ -422,7 +422,7 @@ void Application::CreateGraphicsPipeline() {
     // Pipeline rendering info (for dynamic rendering).
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &context.swapChainDimensions.format
+        .pColorAttachmentFormats = &ctx.graphics.swapChain.dimensions.format
     };
 
     // Create the graphics pipeline.
@@ -438,52 +438,54 @@ void Application::CreateGraphicsPipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = context.graphicsPipelineLayout, // We need to specify the pipeline layout description up front as well.
-        .renderPass = VK_NULL_HANDLE,     // Since we are using dynamic rendering this will set as null
+        .layout = ctx.graphics.pipelineLayout,
+        // We need to specify the pipeline layout description up front as well.
+        .renderPass = VK_NULL_HANDLE, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
     vk::Result result;
-    std::tie(result, context.graphicsPipeline) = context.device.createGraphicsPipeline(nullptr, pipeline_create_info);
+    std::tie(result, ctx.graphics.pipeline) = ctx.device.createGraphicsPipeline(nullptr, pipeline_create_info);
     assert(result == vk::Result::eSuccess);
 
-    context.device.destroyShaderModule(vertShaderModule);
-    context.device.destroyShaderModule(fragShaderModule);
+    for (auto& shaderStage : shaderStages) {
+        ctx.device.destroyShaderModule(shaderStage.module);
+    }
 }
 
 void Application::Cleanup() const {
     // Vulkan Cleanup
     // Don't release anything until the GPU is completely idle.
-    if (context.device) {
-        context.device.waitIdle();
+    if (ctx.device) {
+        ctx.device.waitIdle();
     }
 
-    if (context.graphicsPipeline) {
-        context.device.destroyPipeline(context.graphicsPipeline);
+    if (ctx.graphics.pipeline) {
+        ctx.device.destroyPipeline(ctx.graphics.pipeline);
     }
 
-    if (context.graphicsPipelineLayout) {
-        context.device.destroyPipelineLayout(context.graphicsPipelineLayout);
+    if (ctx.graphics.pipelineLayout) {
+        ctx.device.destroyPipelineLayout(ctx.graphics.pipelineLayout);
     }
 
-    for (vk::ImageView imageView : context.swapChainImagesViews) {
-        context.device.destroyImageView(imageView);
+    for (vk::ImageView imageView : ctx.graphics.swapChain.imagesViews) {
+        ctx.device.destroyImageView(imageView);
     }
 
-    if (context.swapChain) {
-        context.device.destroySwapchainKHR(context.swapChain);
+    if (ctx.graphics.swapChain.handle) {
+        ctx.device.destroySwapchainKHR(ctx.graphics.swapChain.handle);
     }
 
-    if (context.surface) {
-        context.instance.destroySurfaceKHR(context.surface);
+    if (ctx.surface) {
+        ctx.instance.destroySurfaceKHR(ctx.surface);
     }
 
-    if (context.device) {
-        context.device.destroy();
+    if (ctx.device) {
+        ctx.device.destroy();
     }
 
-    if (context.debugCallback) {
-        context.instance.destroyDebugUtilsMessengerEXT(context.debugCallback);
+    if (ctx.debugCallback) {
+        ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
     }
 
     // GLFW Cleanup

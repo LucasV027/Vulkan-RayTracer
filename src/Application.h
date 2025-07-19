@@ -38,23 +38,29 @@ private:
         vk::PhysicalDevice gpu = nullptr;
         vk::Device device = nullptr;
 
-        uint32_t graphicsQueueIndex = -1;
-        vk::Queue graphicsQueue = nullptr;
+        struct {
+            uint32_t queueIndex = -1;
+            vk::Queue queue = nullptr;
 
-        uint32_t computeQueueIndex = -1;
-        vk::Queue computeQueue = nullptr;
+            vk::PipelineLayout pipelineLayout;
+            vk::Pipeline pipeline;
 
-        vk::SwapchainKHR swapChain = nullptr;
-        std::vector<vk::Image> swapChainImages;
-        std::vector<vk::ImageView> swapChainImagesViews;
+            struct {
+                vk::SwapchainKHR handle = nullptr;
+                std::vector<vk::Image> images;
+                std::vector<vk::ImageView> imagesViews;
+
+                struct {
+                    uint32_t width = 0;
+                    uint32_t height = 0;
+                    vk::Format format = vk::Format::eUndefined;
+                } dimensions;
+            } swapChain;
+        } graphics;
 
         struct {
-            uint32_t width = 0;
-            uint32_t height = 0;
-            vk::Format format = vk::Format::eUndefined;
-        } swapChainDimensions;
-
-        vk::PipelineLayout graphicsPipelineLayout;
-        vk::Pipeline graphicsPipeline;
-    } context;
+            uint32_t queueIndex = -1;
+            vk::Queue queue = nullptr;
+        } compute;
+    } ctx;
 };

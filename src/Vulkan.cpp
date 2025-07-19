@@ -45,6 +45,7 @@ vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const st
     auto code = Utils::ReadSpirvFile(filepath);
     if (!code) {
         LOGE("{}", code.error());
+        return VK_NULL_HANDLE;
     }
 
     const vk::ShaderModuleCreateInfo createModuleInfo{
