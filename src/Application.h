@@ -35,9 +35,13 @@ private:
         vk::DebugUtilsMessengerEXT debugCallback = nullptr;
         vk::SurfaceKHR surface = nullptr;
         vk::PhysicalDevice gpu = nullptr;
-        int32_t graphicsQueueIndex = -1;
         vk::Device device = nullptr;
-        vk::Queue queue = nullptr;
+
+        uint32_t graphicsQueueIndex = -1;
+        vk::Queue graphicsQueue = nullptr;
+
+        uint32_t computeQueueIndex = -1;
+        vk::Queue computeQueue = nullptr;
 
         vk::SwapchainKHR swapChain = nullptr;
         std::vector<vk::Image> swapChainImages;

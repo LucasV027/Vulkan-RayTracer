@@ -1,5 +1,7 @@
 #include "Application.h"
 
+#include <set>
+
 Application::Application() {
     InitWindow();
     InitVulkan();
@@ -128,27 +130,40 @@ void Application::PickPhysicalDevice() {
 
         auto queueFamilies = gpu.getQueueFamilyProperties();
 
+        bool foundGraphics = false;
+        bool foundCompute = false;
+
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
             const auto& queueFamily = queueFamilies[i];
+            const bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
+            const bool supportsCompute = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eCompute);
 
-            bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
-            bool supportsPresent = false;
-
-            if (supportsGraphics) {
-                supportsPresent = gpu.getSurfaceSupportKHR(i, context.surface);
-            }
-
-            if (supportsGraphics && supportsPresent) {
+            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, context.surface) && !foundGraphics) {
                 context.graphicsQueueIndex = i;
-                context.gpu = gpu;
-
-                LOGI("Selected GPU: '{}'", properties.deviceName.data());
-                return;
+                foundGraphics = true;
             }
+
+            // Prefer a compute-only queue
+            if (supportsCompute && !(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) && !foundCompute) {
+                context.computeQueueIndex = i;
+                foundCompute = true;
+            }
+        }
+
+        if (!foundCompute && foundGraphics) {
+            context.computeQueueIndex = context.graphicsQueueIndex;
+            foundCompute = true;
+            LOGI("No dedicated compute queue found, fallback to graphics queue");
+        }
+
+        if (foundGraphics && foundCompute) {
+            context.gpu = gpu;
+            LOGI("Selected GPU: '{}'", properties.deviceName.data());
+            return;
         }
     }
 
-    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics + present support).");
+    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics + compute support).");
 }
 
 void Application::CreateLogicalDevice() {
@@ -183,24 +198,33 @@ void Application::CreateLogicalDevice() {
         {}, {.synchronization2 = true, .dynamicRendering = true}, {.extendedDynamicState = true}
     };
 
-    float queuePriority = 1.0f;
-    vk::DeviceQueueCreateInfo queueCreateInfo{
-        .queueFamilyIndex = static_cast<uint32_t>(context.graphicsQueueIndex),
-        .queueCount = 1,
-        .pQueuePriorities = &queuePriority
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamilies = {
+        context.graphicsQueueIndex, context.computeQueueIndex
     };
+
+    float queuePriority = 1.0f;
+    for (uint32_t queueFamily : uniqueQueueFamilies) {
+        queueCreateInfos.push_back(vk::DeviceQueueCreateInfo{
+            .queueFamilyIndex = queueFamily,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority
+        });
+    }
 
     vk::DeviceCreateInfo deviceCreateInfo{
         .pNext = &enabledFeatures.get<vk::PhysicalDeviceFeatures2>(),
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queueCreateInfo,
+        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+        .pQueueCreateInfos = queueCreateInfos.data(),
         .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
         .ppEnabledExtensionNames = requiredExtensions.data()
     };
 
+
     context.device = context.gpu.createDevice(deviceCreateInfo);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
-    context.queue = context.device.getQueue(context.graphicsQueueIndex, 0);
+    context.graphicsQueue = context.device.getQueue(context.graphicsQueueIndex, 0);
+    context.computeQueue = context.device.getQueue(context.computeQueueIndex, 0);
 }
 
 void Application::CreateSwapChain() {
@@ -216,6 +240,8 @@ void Application::CreateSwapChain() {
             break;
         }
     }
+
+    context.swapChainDimensions.format = surfaceFormat.format;
 
     auto presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& availablePresentMode : presentModes) {
@@ -238,8 +264,10 @@ void Application::CreateSwapChain() {
     }
 
 
-    const uint32_t imageCount = std::clamp(3u, capabilities.minImageCount,
-                                           capabilities.maxImageCount > 0 ? capabilities.maxImageCount : 3u);
+    uint32_t imageCount = 3;
+    if (capabilities.maxImageCount > 0)
+        imageCount = std::min(imageCount, capabilities.maxImageCount);
+    imageCount = std::max(imageCount, capabilities.minImageCount);
 
     vk::SwapchainCreateInfoKHR createInfo{
         .surface = context.surface,
