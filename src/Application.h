@@ -31,6 +31,11 @@ private:
 
     GLFWwindow* window = nullptr;
 
+    struct PerFrame {
+        vk::CommandPool commandPool;
+        vk::CommandBuffer commandBuffer;
+    };
+
     struct {
         vk::Instance instance = nullptr;
         vk::DebugUtilsMessengerEXT debugCallback = nullptr;
@@ -49,6 +54,7 @@ private:
                 vk::SwapchainKHR handle = nullptr;
                 std::vector<vk::Image> images;
                 std::vector<vk::ImageView> imagesViews;
+                std::vector<PerFrame> perFrames;
 
                 struct {
                     uint32_t width = 0;

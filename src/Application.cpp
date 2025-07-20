@@ -305,6 +305,25 @@ void Application::CreateSwapChain() {
 
         ctx.graphics.swapChain.imagesViews.push_back(ctx.device.createImageView(viewCreateInfo));
     }
+
+    ctx.graphics.swapChain.perFrames.clear();
+    ctx.graphics.swapChain.perFrames.resize(ctx.graphics.swapChain.images.size());
+
+    for (auto& [commandPool, commandBuffer] : ctx.graphics.swapChain.perFrames) {
+        vk::CommandPoolCreateInfo commandPoolCreateInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eTransient,
+            .queueFamilyIndex = ctx.graphics.queueIndex,
+        };
+
+        commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
+
+        vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
+            .commandPool = commandPool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1
+        };
+        commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+    }
 }
 
 void Application::CreateGraphicsPipeline() {
@@ -459,6 +478,17 @@ void Application::Cleanup() const {
     if (ctx.device) {
         ctx.device.waitIdle();
     }
+
+    for (auto& [commandPool, commandBuffer] : ctx.graphics.swapChain.perFrames) {
+        if (commandBuffer) {
+            ctx.device.freeCommandBuffers(commandPool, commandBuffer);
+        }
+
+        if (commandPool) {
+            ctx.device.destroyCommandPool(commandPool);
+        }
+    }
+
 
     if (ctx.graphics.pipeline) {
         ctx.device.destroyPipeline(ctx.graphics.pipeline);
