@@ -34,7 +34,7 @@ void Application::InitWindow() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // No resize yet !
 
-    window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+    window = glfwCreateWindow(width, height, appName.c_str(), nullptr, nullptr);
     if (!window) throw std::runtime_error("Failed to create GLFW window");
 }
 
@@ -46,8 +46,8 @@ void Application::InitVulkan() {
 
     int width, height;
     glfwGetWindowSize(window, &width, &height);
-    ctx.graphics.swapChain.dimensions.width = width;
-    ctx.graphics.swapChain.dimensions.height = height;
+    ctx.swapChainDimensions.width = width;
+    ctx.swapChainDimensions.height = height;
 
     CreateSwapChain();
 
@@ -61,7 +61,7 @@ void Application::CreateInstance() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     vk::ApplicationInfo appInfo{
-        .pApplicationName = name.c_str(),
+        .pApplicationName = appName.c_str(),
         .pEngineName = "",
         .apiVersion = VK_MAKE_VERSION(1, 3, 0)
     };
@@ -146,19 +146,19 @@ void Application::PickPhysicalDevice() {
             const bool supportsCompute = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eCompute);
 
             if (supportsGraphics && gpu.getSurfaceSupportKHR(i, ctx.surface) && !foundGraphics) {
-                ctx.graphics.queueIndex = i;
+                ctx.graphicsQueueIndex = i;
                 foundGraphics = true;
             }
 
             // Prefer a compute-only queue
             if (supportsCompute && !(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) && !foundCompute) {
-                ctx.compute.queueIndex = i;
+                ctx.computeQueueIndex = i;
                 foundCompute = true;
             }
         }
 
         if (!foundCompute && foundGraphics) {
-            ctx.compute.queueIndex = ctx.graphics.queueIndex;
+            ctx.computeQueueIndex = ctx.graphicsQueueIndex;
             foundCompute = true;
             LOGI("No dedicated compute queue found, fallback to graphics queue");
         }
@@ -207,7 +207,7 @@ void Application::CreateLogicalDevice() {
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {
-        ctx.graphics.queueIndex, ctx.compute.queueIndex
+        ctx.graphicsQueueIndex, ctx.computeQueueIndex
     };
 
     float queuePriority = 1.0f;
@@ -230,8 +230,8 @@ void Application::CreateLogicalDevice() {
 
     ctx.device = ctx.gpu.createDevice(deviceCreateInfo);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(ctx.device);
-    ctx.graphics.queue = ctx.device.getQueue(ctx.graphics.queueIndex, 0);
-    ctx.compute.queue = ctx.device.getQueue(ctx.compute.queueIndex, 0);
+    ctx.graphicsQueue = ctx.device.getQueue(ctx.graphicsQueueIndex, 0);
+    ctx.computeQueue = ctx.device.getQueue(ctx.computeQueueIndex, 0);
 }
 
 void Application::CreateSwapChain() {
@@ -248,7 +248,7 @@ void Application::CreateSwapChain() {
         }
     }
 
-    ctx.graphics.swapChain.dimensions.format = surfaceFormat.format;
+    ctx.swapChainDimensions.format = surfaceFormat.format;
 
     auto presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& availablePresentMode : presentModes) {
@@ -260,10 +260,10 @@ void Application::CreateSwapChain() {
 
     vk::Extent2D extent;
     if (capabilities.currentExtent.width == UINT32_MAX) {
-        extent.width = std::clamp(ctx.graphics.swapChain.dimensions.width,
+        extent.width = std::clamp(ctx.swapChainDimensions.width,
                                   capabilities.minImageExtent.width,
                                   capabilities.maxImageExtent.width);
-        extent.height = std::clamp(ctx.graphics.swapChain.dimensions.height,
+        extent.height = std::clamp(ctx.swapChainDimensions.height,
                                    capabilities.minImageExtent.height,
                                    capabilities.maxImageExtent.height);
     } else {
@@ -291,31 +291,31 @@ void Application::CreateSwapChain() {
         .clipped = true
     };
 
-    ctx.graphics.swapChain.handle = ctx.device.createSwapchainKHR(createInfo);
-    ctx.graphics.swapChain.images = ctx.device.getSwapchainImagesKHR(ctx.graphics.swapChain.handle);
+    ctx.swapChain = ctx.device.createSwapchainKHR(createInfo);
+    ctx.swapChainImages = ctx.device.getSwapchainImagesKHR(ctx.swapChain);
 
-    for (auto const& swapChainImage : ctx.graphics.swapChain.images) {
+    for (auto const& swapChainImage : ctx.swapChainImages) {
         vk::ImageViewCreateInfo viewCreateInfo{
             .image = swapChainImage,
             .viewType = vk::ImageViewType::e2D,
-            .format = ctx.graphics.swapChain.dimensions.format,
+            .format = ctx.swapChainDimensions.format,
             .subresourceRange = {
                 .aspectMask = vk::ImageAspectFlagBits::eColor, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0,
                 .layerCount = 1
             }
         };
 
-        ctx.graphics.swapChain.imagesViews.push_back(ctx.device.createImageView(viewCreateInfo));
+        ctx.swapChainImagesViews.push_back(ctx.device.createImageView(viewCreateInfo));
     }
 
-    ctx.graphics.swapChain.perFrames.clear();
-    ctx.graphics.swapChain.perFrames.resize(ctx.graphics.swapChain.images.size());
+    ctx.perFrames.clear();
+    ctx.perFrames.resize(ctx.swapChainImages.size());
 
-    for (auto& [commandPool, commandBuffer, imageAvailable, renderFinished, inFlight] : ctx.graphics.swapChain.
+    for (auto& [commandPool, commandBuffer, imageAvailable, renderFinished, inFlight] : ctx.
          perFrames) {
         vk::CommandPoolCreateInfo commandPoolCreateInfo{
             .flags = vk::CommandPoolCreateFlagBits::eTransient,
-            .queueFamilyIndex = ctx.graphics.queueIndex,
+            .queueFamilyIndex = ctx.graphicsQueueIndex,
         };
 
         commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
@@ -334,7 +334,7 @@ void Application::CreateSwapChain() {
 }
 
 void Application::CreateGraphicsPipeline() {
-    ctx.graphics.pipelineLayout = ctx.device.createPipelineLayout({});
+    ctx.graphicsPipelineLayout = ctx.device.createPipelineLayout({});
 
     vk::VertexInputBindingDescription bindingDescription{
         .binding = 0,
@@ -448,7 +448,7 @@ void Application::CreateGraphicsPipeline() {
     // Pipeline rendering info (for dynamic rendering).
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &ctx.graphics.swapChain.dimensions.format
+        .pColorAttachmentFormats = &ctx.swapChainDimensions.format
     };
 
     // Create the graphics pipeline.
@@ -464,14 +464,14 @@ void Application::CreateGraphicsPipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = ctx.graphics.pipelineLayout,
+        .layout = ctx.graphicsPipelineLayout,
         // We need to specify the pipeline layout description up front as well.
         .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
     vk::Result result;
-    std::tie(result, ctx.graphics.pipeline) = ctx.device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+    std::tie(result, ctx.graphicsPipeline) = ctx.device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 
     for (auto& shaderStage : shaderStages) {
@@ -488,9 +488,9 @@ void Application::CreateVertexBuffer() {
         .sharingMode = vk::SharingMode::eExclusive
     };
 
-    ctx.graphics.vertexBuffer = ctx.device.createBuffer(vertexBufferCreateInfo);
+    ctx.vertexBuffer = ctx.device.createBuffer(vertexBufferCreateInfo);
 
-    const vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.graphics.vertexBuffer);
+    const vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.vertexBuffer);
 
     auto FindMemoryType = [](const vk::PhysicalDevice physicalDevice,
                              const uint32_t typeFilter,
@@ -523,32 +523,32 @@ void Application::CreateVertexBuffer() {
                        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
     };
 
-    ctx.graphics.vertexBufferMemory = ctx.device.allocateMemory(allocInfo);
+    ctx.vertexBufferMemory = ctx.device.allocateMemory(allocInfo);
 
-    ctx.device.bindBufferMemory(ctx.graphics.vertexBuffer, ctx.graphics.vertexBufferMemory, 0);
+    ctx.device.bindBufferMemory(ctx.vertexBuffer, ctx.vertexBufferMemory, 0);
 
-    void* data = ctx.device.mapMemory(ctx.graphics.vertexBufferMemory, 0, bufferSize);
+    void* data = ctx.device.mapMemory(ctx.vertexBufferMemory, 0, bufferSize);
     memcpy(data, vertices.data(), bufferSize);
-    ctx.device.unmapMemory(ctx.graphics.vertexBufferMemory);
+    ctx.device.unmapMemory(ctx.vertexBufferMemory);
 }
 
 uint32_t Application::AcquireNextImage() {
     const auto acquireSemaphore = ctx.device.createSemaphore({});
 
-    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.graphics.swapChain.handle,
+    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.swapChain,
                                                                UINT64_MAX,
                                                                acquireSemaphore);
 
-    if (ctx.graphics.swapChain.perFrames[imageIndex].inFlight) {
-        const auto waitResult = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight,
+    if (ctx.perFrames[imageIndex].inFlight) {
+        const auto waitResult = ctx.device.waitForFences(ctx.perFrames[imageIndex].inFlight,
                                                          true,
                                                          UINT64_MAX);
         assert(waitResult == vk::Result::eSuccess);
-        ctx.device.resetFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight);
+        ctx.device.resetFences(ctx.perFrames[imageIndex].inFlight);
     }
 
-    ctx.device.destroySemaphore(ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable);
-    ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable = acquireSemaphore;
+    ctx.device.destroySemaphore(ctx.perFrames[imageIndex].imageAvailable);
+    ctx.perFrames[imageIndex].imageAvailable = acquireSemaphore;
 
     if (result != vk::Result::eSuccess) {
         // TODO: check for resize
@@ -558,14 +558,14 @@ uint32_t Application::AcquireNextImage() {
 }
 
 void Application::Render(const uint32_t swapChainIndex) {
-    ctx.device.resetCommandPool(ctx.graphics.swapChain.perFrames[swapChainIndex].commandPool);
+    ctx.device.resetCommandPool(ctx.perFrames[swapChainIndex].commandPool);
 
-    vk::CommandBuffer cmd = ctx.graphics.swapChain.perFrames[swapChainIndex].commandBuffer;
+    vk::CommandBuffer cmd = ctx.perFrames[swapChainIndex].commandBuffer;
     constexpr vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
 
     cmd.begin(beginInfo);
     vkHelpers::TransitionImageLayout(cmd,
-                                     ctx.graphics.swapChain.images[swapChainIndex],
+                                     ctx.swapChainImages[swapChainIndex],
                                      vk::ImageLayout::eUndefined,
                                      vk::ImageLayout::eColorAttachmentOptimal,
                                      {}, // srcAccessMask (no need to wait for previous operations)
@@ -580,7 +580,7 @@ void Application::Render(const uint32_t swapChainIndex) {
 
     // Set up the rendering attachment info
     vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = ctx.graphics.swapChain.imagesViews[swapChainIndex],
+        .imageView = ctx.swapChainImagesViews[swapChainIndex],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -594,8 +594,8 @@ void Application::Render(const uint32_t swapChainIndex) {
             .offset = {0, 0}, // Initialize the `VkOffset2D` inside `renderArea`
             .extent = {
                 // Initialize the `VkExtent2D` inside `renderArea`
-                .width = ctx.graphics.swapChain.dimensions.width,
-                .height = ctx.graphics.swapChain.dimensions.height
+                .width = ctx.swapChainDimensions.width,
+                .height = ctx.swapChainDimensions.height
             }
         },
         .layerCount = 1,
@@ -605,12 +605,12 @@ void Application::Render(const uint32_t swapChainIndex) {
 
     cmd.beginRendering(renderingInfo);
 
-    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphics.pipeline);
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphicsPipeline);
 
     // Set viewport dynamically
     const vk::Viewport vp{
-        .width = static_cast<float>(ctx.graphics.swapChain.dimensions.width),
-        .height = static_cast<float>(ctx.graphics.swapChain.dimensions.height),
+        .width = static_cast<float>(ctx.swapChainDimensions.width),
+        .height = static_cast<float>(ctx.swapChainDimensions.height),
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
@@ -620,8 +620,8 @@ void Application::Render(const uint32_t swapChainIndex) {
     // Set scissor dynamically
     const vk::Rect2D scissor{
         .extent = {
-            .width = ctx.graphics.swapChain.dimensions.width,
-            .height = ctx.graphics.swapChain.dimensions.height
+            .width = ctx.swapChainDimensions.width,
+            .height = ctx.swapChainDimensions.height
         }
     };
 
@@ -630,13 +630,13 @@ void Application::Render(const uint32_t swapChainIndex) {
     cmd.setFrontFace(vk::FrontFace::eClockwise);
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
-    cmd.bindVertexBuffers(0, ctx.graphics.vertexBuffer, {0});
+    cmd.bindVertexBuffers(0, ctx.vertexBuffer, {0});
     cmd.draw(vertices.size(), 1, 0, 0);
 
     cmd.endRendering();
 
     vkHelpers::TransitionImageLayout(cmd,
-                                     ctx.graphics.swapChain.images[swapChainIndex],
+                                     ctx.swapChainImages[swapChainIndex],
                                      vk::ImageLayout::eColorAttachmentOptimal,
                                      vk::ImageLayout::ePresentSrcKHR,
                                      vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
@@ -651,27 +651,27 @@ void Application::Render(const uint32_t swapChainIndex) {
 
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].imageAvailable,
+        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].imageAvailable,
         .pWaitDstStageMask = &waitStage,
         .commandBufferCount = 1,
         .pCommandBuffers = &cmd,
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].renderFinished
+        .pSignalSemaphores = &ctx.perFrames[swapChainIndex].renderFinished
     };
 
-    ctx.graphics.queue.submit(submitInfo, ctx.graphics.swapChain.perFrames[swapChainIndex].inFlight);
+    ctx.graphicsQueue.submit(submitInfo, ctx.perFrames[swapChainIndex].inFlight);
 }
 
 void Application::PresentImage(uint32_t swapChainIndex) {
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].renderFinished,
+        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].renderFinished,
         .swapchainCount = 1,
-        .pSwapchains = &ctx.graphics.swapChain.handle,
+        .pSwapchains = &ctx.swapChain,
         .pImageIndices = &swapChainIndex
     };
 
-    const auto result = ctx.graphics.queue.presentKHR(presentInfo);
+    const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
     if (result != vk::Result::eSuccess) {
         // TODO: check for resize
     }
@@ -694,38 +694,38 @@ void Application::VulkanCleanup() {
         ctx.device.waitIdle();
     }
 
-    for (auto& perFrame : ctx.graphics.swapChain.perFrames) {
+    for (auto& perFrame : ctx.perFrames) {
         perFrame.Destroy(ctx.device);
     }
 
-    ctx.graphics.swapChain.perFrames.clear();
+    ctx.perFrames.clear();
 
-    if (ctx.graphics.pipeline) {
-        ctx.device.destroyPipeline(ctx.graphics.pipeline);
+    if (ctx.graphicsPipeline) {
+        ctx.device.destroyPipeline(ctx.graphicsPipeline);
     }
 
-    if (ctx.graphics.pipelineLayout) {
-        ctx.device.destroyPipelineLayout(ctx.graphics.pipelineLayout);
+    if (ctx.graphicsPipelineLayout) {
+        ctx.device.destroyPipelineLayout(ctx.graphicsPipelineLayout);
     }
 
-    for (const vk::ImageView imageView : ctx.graphics.swapChain.imagesViews) {
+    for (const vk::ImageView imageView : ctx.swapChainImagesViews) {
         ctx.device.destroyImageView(imageView);
     }
 
-    if (ctx.graphics.swapChain.handle) {
-        ctx.device.destroySwapchainKHR(ctx.graphics.swapChain.handle);
+    if (ctx.swapChain) {
+        ctx.device.destroySwapchainKHR(ctx.swapChain);
     }
 
     if (ctx.surface) {
         ctx.instance.destroySurfaceKHR(ctx.surface);
     }
 
-    if (ctx.graphics.vertexBuffer) {
-        ctx.device.destroyBuffer(ctx.graphics.vertexBuffer);
+    if (ctx.vertexBuffer) {
+        ctx.device.destroyBuffer(ctx.vertexBuffer);
     }
 
-    if (ctx.graphics.vertexBufferMemory) {
-        ctx.device.freeMemory(ctx.graphics.vertexBufferMemory);
+    if (ctx.vertexBufferMemory) {
+        ctx.device.freeMemory(ctx.vertexBufferMemory);
     }
 
     if (ctx.device) {

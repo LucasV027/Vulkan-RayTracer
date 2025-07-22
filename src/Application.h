@@ -36,11 +36,21 @@ private:
     void GLFWCleanup() const;
 
 private:
-    std::string name = "Vulkan-RayTracer";
+    std::string appName = "Vulkan-RayTracer";
+    int width = 800;
+    int height = 600;
 
+    const std::vector<float> vertices = {
+        0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+        0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+        -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
+    };
+
+    // GLFW
     GLFWwindow* window = nullptr;
     bool running = true;
 
+    // Vulkan
     struct PerFrame {
         vk::CommandPool commandPool = nullptr;
         vk::CommandBuffer commandBuffer = nullptr;
@@ -51,12 +61,6 @@ private:
         void Destroy(vk::Device device) const;
     };
 
-    const std::vector<float> vertices = {
-        0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-        0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-        -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
-    };
-
     struct {
         vk::Instance instance = nullptr;
         vk::DebugUtilsMessengerEXT debugCallback = nullptr;
@@ -64,33 +68,27 @@ private:
         vk::PhysicalDevice gpu = nullptr;
         vk::Device device = nullptr;
 
-        struct {
-            uint32_t queueIndex = -1;
-            vk::Queue queue = nullptr;
+        vk::PipelineLayout graphicsPipelineLayout = nullptr;
+        vk::Pipeline graphicsPipeline = nullptr;
 
-            vk::PipelineLayout pipelineLayout;
-            vk::Pipeline pipeline;
+        vk::Buffer vertexBuffer = nullptr;
+        vk::DeviceMemory vertexBufferMemory = nullptr;
 
-            vk::Buffer vertexBuffer = nullptr;
-            vk::DeviceMemory vertexBufferMemory = nullptr;
-
-            struct {
-                vk::SwapchainKHR handle = nullptr;
-                std::vector<vk::Image> images;
-                std::vector<vk::ImageView> imagesViews;
-                std::vector<PerFrame> perFrames;
-
-                struct {
-                    uint32_t width = 0;
-                    uint32_t height = 0;
-                    vk::Format format = vk::Format::eUndefined;
-                } dimensions;
-            } swapChain;
-        } graphics;
+        vk::SwapchainKHR swapChain = nullptr;
+        std::vector<vk::Image> swapChainImages;
+        std::vector<vk::ImageView> swapChainImagesViews;
+        std::vector<PerFrame> perFrames;
 
         struct {
-            uint32_t queueIndex = -1;
-            vk::Queue queue = nullptr;
-        } compute;
+            uint32_t width = 0;
+            uint32_t height = 0;
+            vk::Format format = vk::Format::eUndefined;
+        } swapChainDimensions;
+
+        uint32_t graphicsQueueIndex = -1;
+        vk::Queue graphicsQueue = nullptr;
+
+        uint32_t computeQueueIndex = -1;
+        vk::Queue computeQueue = nullptr;
     } ctx;
 };
