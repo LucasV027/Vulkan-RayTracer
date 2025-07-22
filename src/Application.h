@@ -10,7 +10,7 @@
 class Application {
 public:
     Application();
-    void Run() const;
+    void Run();
     ~Application();
 
 private:
@@ -23,6 +23,19 @@ private:
     void CreateLogicalDevice();
     void CreateSwapChain();
     void CreateGraphicsPipeline();
+    void CreateVertexBuffer();
+
+    void Update();
+    void Render(uint32_t swapChainIndex);
+
+    static void TransitionImageLayout(vk::CommandBuffer cmd,
+                                      vk::Image image,
+                                      vk::ImageLayout oldLayout,
+                                      vk::ImageLayout newLayout,
+                                      vk::AccessFlags2 srcAccessMask,
+                                      vk::AccessFlags2 dstAccessMask,
+                                      vk::PipelineStageFlags2 srcStage,
+                                      vk::PipelineStageFlags2 dstStage);
 
     void Cleanup() const;
 
@@ -32,8 +45,17 @@ private:
     GLFWwindow* window = nullptr;
 
     struct PerFrame {
-        vk::CommandPool commandPool;
-        vk::CommandBuffer commandBuffer;
+        vk::CommandPool commandPool = nullptr;
+        vk::CommandBuffer commandBuffer = nullptr;
+        vk::Semaphore imageAvailable = nullptr;
+        vk::Semaphore renderFinished = nullptr;
+        vk::Fence inFlight = nullptr;
+    };
+
+    const std::vector<float> vertices = {
+        0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+        0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+        -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
     };
 
     struct {
@@ -49,6 +71,9 @@ private:
 
             vk::PipelineLayout pipelineLayout;
             vk::Pipeline pipeline;
+
+            vk::Buffer vertexBuffer = nullptr;
+            vk::DeviceMemory vertexBufferMemory = nullptr;
 
             struct {
                 vk::SwapchainKHR handle = nullptr;

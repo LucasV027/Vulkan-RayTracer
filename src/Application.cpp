@@ -10,9 +10,10 @@ Application::Application() {
     InitVulkan();
 }
 
-void Application::Run() const {
+void Application::Run() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        Update();
     }
 }
 
@@ -51,6 +52,7 @@ void Application::InitVulkan() {
     CreateSwapChain();
 
     CreateGraphicsPipeline();
+    CreateVertexBuffer();
 }
 
 void Application::CreateInstance() {
@@ -309,20 +311,24 @@ void Application::CreateSwapChain() {
     ctx.graphics.swapChain.perFrames.clear();
     ctx.graphics.swapChain.perFrames.resize(ctx.graphics.swapChain.images.size());
 
-    for (auto& [commandPool, commandBuffer] : ctx.graphics.swapChain.perFrames) {
+    for (auto& perFrame : ctx.graphics.swapChain.perFrames) {
         vk::CommandPoolCreateInfo commandPoolCreateInfo{
             .flags = vk::CommandPoolCreateFlagBits::eTransient,
             .queueFamilyIndex = ctx.graphics.queueIndex,
         };
 
-        commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
+        perFrame.commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
 
         vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
-            .commandPool = commandPool,
+            .commandPool = perFrame.commandPool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1
         };
-        commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+        perFrame.commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+
+        perFrame.inFlight = ctx.device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+        perFrame.imageAvailable = ctx.device.createSemaphore({});
+        perFrame.renderFinished = ctx.device.createSemaphore({});
     }
 }
 
@@ -459,7 +465,7 @@ void Application::CreateGraphicsPipeline() {
         .pDynamicState = &dynamicStateCreateInfo,
         .layout = ctx.graphics.pipelineLayout,
         // We need to specify the pipeline layout description up front as well.
-        .renderPass = VK_NULL_HANDLE, // Since we are using dynamic rendering this will set as null
+        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
@@ -472,6 +478,246 @@ void Application::CreateGraphicsPipeline() {
     }
 }
 
+void Application::CreateVertexBuffer() {
+    vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+    vk::BufferCreateInfo vertexBufferCreateInfo{
+        .size = bufferSize,
+        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
+        .sharingMode = vk::SharingMode::eExclusive
+    };
+
+    ctx.graphics.vertexBuffer = ctx.device.createBuffer(vertexBufferCreateInfo);
+
+    vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.graphics.vertexBuffer);
+
+    auto FindMemoryType = [](vk::PhysicalDevice physicalDevice,
+                             uint32_t typeFilter,
+                             vk::MemoryPropertyFlags properties) {
+        // Structure to hold the physical device's memory properties
+        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+        // Iterate over all memory types available on the physical device
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            // Check if the current memory type is acceptable based on the type_filter
+            // The type_filter is a bitmask where each bit represents a memory type that is suitable
+            if (typeFilter & (1 << i)) {
+                // Check if the memory type has all the desired property flags
+                // properties is a bitmask of the required memory properties
+                if ((memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+                    // Found a suitable memory type; return its index
+                    return i;
+                }
+            }
+        }
+
+        // If no suitable memory type was found, throw an exception
+        throw std::runtime_error("Failed to find suitable memory type.");
+    };
+
+    vk::MemoryAllocateInfo allocInfo{
+        .allocationSize = memoryRequirements.size,
+        .memoryTypeIndex =
+        FindMemoryType(ctx.gpu, memoryRequirements.memoryTypeBits,
+                       vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+    };
+
+    ctx.graphics.vertexBufferMemory = ctx.device.allocateMemory(allocInfo);
+
+    ctx.device.bindBufferMemory(ctx.graphics.vertexBuffer, ctx.graphics.vertexBufferMemory, 0);
+
+    void* data = ctx.device.mapMemory(ctx.graphics.vertexBufferMemory, 0, bufferSize);
+    memcpy(data, vertices.data(), bufferSize);
+    ctx.device.unmapMemory(ctx.graphics.vertexBufferMemory);
+}
+
+void Application::Update() {
+    vk::Semaphore acquireSemaphore = ctx.device.createSemaphore({});
+
+    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.graphics.swapChain.handle, UINT64_MAX,
+                                                               acquireSemaphore);
+    if (result != vk::Result::eSuccess) {
+        // TODO: check for resize
+    }
+
+    if (ctx.graphics.swapChain.perFrames[imageIndex].inFlight) {
+        result = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight, true, UINT64_MAX);
+        assert(result == vk::Result::eSuccess);
+        ctx.device.resetFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight);
+    }
+
+    ctx.device.resetCommandPool(ctx.graphics.swapChain.perFrames[imageIndex].commandPool);
+
+    ctx.device.destroySemaphore(ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable);
+    ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable = acquireSemaphore;
+
+    Render(imageIndex);
+
+    vk::PresentInfoKHR presentInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[imageIndex].renderFinished,
+        .swapchainCount = 1,
+        .pSwapchains = &ctx.graphics.swapChain.handle,
+        .pImageIndices = &imageIndex
+    };
+
+    auto valid = ctx.graphics.queue.presentKHR(presentInfo);
+    if (valid == vk::Result::eSuccess) {
+        // TODO: check for resize
+    }
+}
+
+void Application::Render(uint32_t swapChainIndex) {
+    vk::CommandBuffer cmd = ctx.graphics.swapChain.perFrames[swapChainIndex].commandBuffer;
+    vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+
+    cmd.begin(beginInfo);
+    TransitionImageLayout(cmd,
+                          ctx.graphics.swapChain.images[swapChainIndex],
+                          vk::ImageLayout::eUndefined,
+                          vk::ImageLayout::eColorAttachmentOptimal,
+                          {}, // srcAccessMask (no need to wait for previous operations)
+                          vk::AccessFlagBits2::eColorAttachmentWrite, // dstAccessMask
+                          vk::PipelineStageFlagBits2::eTopOfPipe, // srcStage
+                          vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
+    );
+
+    vk::ClearValue clearValue{
+        .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
+    };
+
+    // Set up the rendering attachment info
+    vk::RenderingAttachmentInfo colorAttachment{
+        .imageView = ctx.graphics.swapChain.imagesViews[swapChainIndex],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = clearValue
+    };
+
+    // Begin rendering
+    vk::RenderingInfo renderingInfo{
+        .renderArea = {
+            // Initialize the nested `VkRect2D` structure
+            .offset = {0, 0}, // Initialize the `VkOffset2D` inside `renderArea`
+            .extent = {
+                // Initialize the `VkExtent2D` inside `renderArea`
+                .width = ctx.graphics.swapChain.dimensions.width,
+                .height = ctx.graphics.swapChain.dimensions.height
+            }
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment
+    };
+
+    cmd.beginRendering(renderingInfo);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphics.pipeline);
+
+    // Set viewport dynamically
+    vk::Viewport vp{
+        .width = static_cast<float>(ctx.graphics.swapChain.dimensions.width),
+        .height = static_cast<float>(ctx.graphics.swapChain.dimensions.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    cmd.setViewport(0, vp);
+
+    // Set scissor dynamically
+    vk::Rect2D scissor{
+        .extent = {
+            .width = ctx.graphics.swapChain.dimensions.width,
+            .height = ctx.graphics.swapChain.dimensions.height
+        }
+    };
+
+    cmd.setScissor(0, scissor);
+    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+    cmd.setFrontFace(vk::FrontFace::eClockwise);
+    cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
+
+    cmd.bindVertexBuffers(0, ctx.graphics.vertexBuffer, {0});
+    cmd.draw(vertices.size(), 1, 0, 0);
+
+    cmd.endRendering();
+
+    TransitionImageLayout(cmd,
+                          ctx.graphics.swapChain.images[swapChainIndex],
+                          vk::ImageLayout::eColorAttachmentOptimal,
+                          vk::ImageLayout::ePresentSrcKHR,
+                          vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
+                          {},                                                 // dstAccessMask
+                          vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
+                          vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
+    );
+
+    cmd.end();
+
+    vk::PipelineStageFlags waitStage = {vk::PipelineStageFlagBits::eTopOfPipe};
+
+    vk::SubmitInfo submitInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].imageAvailable,
+        .pWaitDstStageMask = &waitStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].renderFinished
+    };
+
+    ctx.graphics.queue.submit(submitInfo, ctx.graphics.swapChain.perFrames[swapChainIndex].inFlight);
+}
+
+void Application::TransitionImageLayout(vk::CommandBuffer cmd,
+                                        vk::Image image,
+                                        vk::ImageLayout oldLayout,
+                                        vk::ImageLayout newLayout,
+                                        vk::AccessFlags2 srcAccessMask,
+                                        vk::AccessFlags2 dstAccessMask,
+                                        vk::PipelineStageFlags2 srcStage,
+                                        vk::PipelineStageFlags2 dstStage) {
+    // Initialize the VkImageMemoryBarrier2 structure
+    vk::ImageMemoryBarrier2 image_barrier{
+        // Specify the pipeline stages and access masks for the barrier
+        .srcStageMask = srcStage,       // Source pipeline stage mask
+        .srcAccessMask = srcAccessMask, // Source access mask
+        .dstStageMask = dstStage,       // Destination pipeline stage mask
+        .dstAccessMask = dstAccessMask, // Destination access mask
+
+        // Specify the old and new layouts of the image
+        .oldLayout = oldLayout, // Current layout of the image
+        .newLayout = newLayout, // Target layout of the image
+
+        // We are not changing the ownership between queues
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+
+        // Specify the image to be affected by this barrier
+        .image = image,
+
+        // Define the subresource range (which parts of the image are affected)
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor, // Affects the color aspect of the image
+            .baseMipLevel = 0,                             // Start at mip level 0
+            .levelCount = 1,                               // Number of mip levels affected
+            .baseArrayLayer = 0,                           // Start at array layer 0
+            .layerCount = 1                                // Number of array layers affected
+        }
+    };
+
+    // Initialize the VkDependencyInfo structure
+    vk::DependencyInfo dependency_info{
+        .dependencyFlags = {},                 // No special dependency flags
+        .imageMemoryBarrierCount = 1,          // Number of image memory barriers
+        .pImageMemoryBarriers = &image_barrier // Pointer to the image memory barrier(s)
+    };
+
+    // Record the pipeline barrier into the command buffer
+    cmd.pipelineBarrier2(dependency_info);
+}
+
 void Application::Cleanup() const {
     // Vulkan Cleanup
     // Don't release anything until the GPU is completely idle.
@@ -479,16 +725,13 @@ void Application::Cleanup() const {
         ctx.device.waitIdle();
     }
 
-    for (auto& [commandPool, commandBuffer] : ctx.graphics.swapChain.perFrames) {
-        if (commandBuffer) {
-            ctx.device.freeCommandBuffers(commandPool, commandBuffer);
-        }
-
-        if (commandPool) {
-            ctx.device.destroyCommandPool(commandPool);
-        }
+    for (auto& perFrame : ctx.graphics.swapChain.perFrames) {
+        if (perFrame.inFlight) ctx.device.destroyFence(perFrame.inFlight);
+        if (perFrame.commandBuffer) ctx.device.freeCommandBuffers(perFrame.commandPool, perFrame.commandBuffer);
+        if (perFrame.commandPool) ctx.device.destroyCommandPool(perFrame.commandPool);
+        if (perFrame.imageAvailable) ctx.device.destroySemaphore(perFrame.imageAvailable);
+        if (perFrame.renderFinished) ctx.device.destroySemaphore(perFrame.renderFinished);
     }
-
 
     if (ctx.graphics.pipeline) {
         ctx.device.destroyPipeline(ctx.graphics.pipeline);
@@ -508,6 +751,14 @@ void Application::Cleanup() const {
 
     if (ctx.surface) {
         ctx.instance.destroySurfaceKHR(ctx.surface);
+    }
+
+    if (ctx.graphics.vertexBuffer) {
+        ctx.device.destroyBuffer(ctx.graphics.vertexBuffer);
+    }
+
+    if (ctx.graphics.vertexBufferMemory) {
+        ctx.device.freeMemory(ctx.graphics.vertexBufferMemory);
     }
 
     if (ctx.device) {
