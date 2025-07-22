@@ -44,8 +44,7 @@ vk::Bool32 vkHelpers::DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT mes
 vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const std::filesystem::path& filepath) {
     auto code = Utils::ReadSpirvFile(filepath);
     if (!code) {
-        LOGE("{}", code.error());
-        return VK_NULL_HANDLE;
+        throw std::runtime_error(std::format("{}", code.error()));
     }
 
     const vk::ShaderModuleCreateInfo createModuleInfo{
@@ -57,13 +56,13 @@ vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const st
 }
 
 void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
-                                        vk::Image image,
-                                        vk::ImageLayout oldLayout,
-                                        vk::ImageLayout newLayout,
-                                        vk::AccessFlags2 srcAccessMask,
-                                        vk::AccessFlags2 dstAccessMask,
-                                        vk::PipelineStageFlags2 srcStage,
-                                        vk::PipelineStageFlags2 dstStage) {
+                                      vk::Image image,
+                                      vk::ImageLayout oldLayout,
+                                      vk::ImageLayout newLayout,
+                                      vk::AccessFlags2 srcAccessMask,
+                                      vk::AccessFlags2 dstAccessMask,
+                                      vk::PipelineStageFlags2 srcStage,
+                                      vk::PipelineStageFlags2 dstStage) {
     // Initialize the VkImageMemoryBarrier2 structure
     vk::ImageMemoryBarrier2 imageBarrier{
         // Specify the pipeline stages and access masks for the barrier

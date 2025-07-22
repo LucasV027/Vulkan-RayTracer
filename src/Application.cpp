@@ -6,14 +6,21 @@
 #include "Log.h"
 
 Application::Application() {
-    InitWindow();
-    InitVulkan();
+    try {
+        InitWindow();
+        InitVulkan();
+    } catch (const std::exception& e) {
+        LOGE("Failed to initialize application: {}", e.what());
+        Cleanup();
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 void Application::Run() {
-    while (!glfwWindowShouldClose(window)) {
+    while (running) {
         glfwPollEvents();
         Update();
+        running = !glfwWindowShouldClose(window);
     }
 }
 
@@ -22,20 +29,13 @@ Application::~Application() {
 }
 
 void Application::InitWindow() {
-    if (!glfwInit()) {
-        LOGE("Failed to initialize GLFW");
-        exit(1);
-    }
+    if (!glfwInit()) throw std::runtime_error("Failed to initialize GLFW");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // No resize yet !
 
     window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
-        LOGE("Failed to create GLFW window");
-        exit(1);
-    }
+    if (!window) throw std::runtime_error("Failed to create GLFW window");
 }
 
 void Application::InitVulkan() {
@@ -452,7 +452,7 @@ void Application::CreateGraphicsPipeline() {
     };
 
     // Create the graphics pipeline.
-    vk::GraphicsPipelineCreateInfo pipeline_create_info{
+    vk::GraphicsPipelineCreateInfo pipelineCreateInfo{
         .pNext = &pipelineRenderingInfo,
         .stageCount = static_cast<uint32_t>(shaderStages.size()),
         .pStages = shaderStages.data(),
@@ -471,8 +471,8 @@ void Application::CreateGraphicsPipeline() {
     };
 
     vk::Result result;
-    std::tie(result, ctx.graphics.pipeline) = ctx.device.createGraphicsPipeline(nullptr, pipeline_create_info);
-    assert(result == vk::Result::eSuccess);
+    std::tie(result, ctx.graphics.pipeline) = ctx.device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+    if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 
     for (auto& shaderStage : shaderStages) {
         ctx.device.destroyShaderModule(shaderStage.module);
@@ -738,7 +738,7 @@ void Application::VulkanCleanup() {
 }
 
 void Application::GLFWCleanup() const {
-    glfwDestroyWindow(window);
+    if (window) glfwDestroyWindow(window);
     glfwTerminate();
 }
 

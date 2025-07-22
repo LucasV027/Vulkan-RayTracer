@@ -39,6 +39,7 @@ private:
     std::string name = "Vulkan-RayTracer";
 
     GLFWwindow* window = nullptr;
+    bool running = true;
 
     struct PerFrame {
         vk::CommandPool commandPool = nullptr;
