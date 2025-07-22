@@ -57,7 +57,7 @@ void Application::InitVulkan() {
 
 void Application::CreateInstance() {
     static vk::detail::DynamicLoader loader;
-    auto vkGetInstanceProcAddr = loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+    const auto vkGetInstanceProcAddr = loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     vk::ApplicationInfo appInfo{
@@ -73,7 +73,7 @@ void Application::CreateInstance() {
     std::vector<const char*> requestedInstanceLayers;
 
 #ifndef NDEBUG
-    constexpr const char* validationLayer = "VK_LAYER_KHRONOS_validation";
+    constexpr auto validationLayer = "VK_LAYER_KHRONOS_validation";
     const auto supportedLayers = vk::enumerateInstanceLayerProperties();
     for (const auto& layer : supportedLayers) {
         if (strcmp(layer.layerName, validationLayer) == 0) {
@@ -83,7 +83,7 @@ void Application::CreateInstance() {
     }
 
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{
+    constexpr vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{
         .messageSeverity =
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
@@ -311,24 +311,25 @@ void Application::CreateSwapChain() {
     ctx.graphics.swapChain.perFrames.clear();
     ctx.graphics.swapChain.perFrames.resize(ctx.graphics.swapChain.images.size());
 
-    for (auto& perFrame : ctx.graphics.swapChain.perFrames) {
+    for (auto& [commandPool, commandBuffer, imageAvailable, renderFinished, inFlight] : ctx.graphics.swapChain.
+         perFrames) {
         vk::CommandPoolCreateInfo commandPoolCreateInfo{
             .flags = vk::CommandPoolCreateFlagBits::eTransient,
             .queueFamilyIndex = ctx.graphics.queueIndex,
         };
 
-        perFrame.commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
+        commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
 
         vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
-            .commandPool = perFrame.commandPool,
+            .commandPool = commandPool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1
         };
-        perFrame.commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+        commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
 
-        perFrame.inFlight = ctx.device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
-        perFrame.imageAvailable = ctx.device.createSemaphore({});
-        perFrame.renderFinished = ctx.device.createSemaphore({});
+        inFlight = ctx.device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+        imageAvailable = ctx.device.createSemaphore({});
+        renderFinished = ctx.device.createSemaphore({});
     }
 }
 
@@ -479,9 +480,9 @@ void Application::CreateGraphicsPipeline() {
 }
 
 void Application::CreateVertexBuffer() {
-    vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    const vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    vk::BufferCreateInfo vertexBufferCreateInfo{
+    const vk::BufferCreateInfo vertexBufferCreateInfo{
         .size = bufferSize,
         .usage = vk::BufferUsageFlagBits::eVertexBuffer,
         .sharingMode = vk::SharingMode::eExclusive
@@ -489,13 +490,13 @@ void Application::CreateVertexBuffer() {
 
     ctx.graphics.vertexBuffer = ctx.device.createBuffer(vertexBufferCreateInfo);
 
-    vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.graphics.vertexBuffer);
+    const vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.graphics.vertexBuffer);
 
-    auto FindMemoryType = [](vk::PhysicalDevice physicalDevice,
-                             uint32_t typeFilter,
-                             vk::MemoryPropertyFlags properties) {
+    auto FindMemoryType = [](const vk::PhysicalDevice physicalDevice,
+                             const uint32_t typeFilter,
+                             const vk::MemoryPropertyFlags properties) {
         // Structure to hold the physical device's memory properties
-        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+        const auto memProperties = physicalDevice.getMemoryProperties();
 
         // Iterate over all memory types available on the physical device
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
@@ -515,7 +516,7 @@ void Application::CreateVertexBuffer() {
         throw std::runtime_error("Failed to find suitable memory type.");
     };
 
-    vk::MemoryAllocateInfo allocInfo{
+    const vk::MemoryAllocateInfo allocInfo{
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex =
         FindMemoryType(ctx.gpu, memoryRequirements.memoryTypeBits,
@@ -532,16 +533,16 @@ void Application::CreateVertexBuffer() {
 }
 
 uint32_t Application::AcquireNextImage() {
-    vk::Semaphore acquireSemaphore = ctx.device.createSemaphore({});
+    const auto acquireSemaphore = ctx.device.createSemaphore({});
 
     auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.graphics.swapChain.handle,
                                                                UINT64_MAX,
                                                                acquireSemaphore);
 
     if (ctx.graphics.swapChain.perFrames[imageIndex].inFlight) {
-        auto waitResult = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight,
-                                                   true,
-                                                   UINT64_MAX);
+        const auto waitResult = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight,
+                                                         true,
+                                                         UINT64_MAX);
         assert(waitResult == vk::Result::eSuccess);
         ctx.device.resetFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight);
     }
@@ -556,11 +557,11 @@ uint32_t Application::AcquireNextImage() {
     return imageIndex;
 }
 
-void Application::Render(uint32_t swapChainIndex) {
+void Application::Render(const uint32_t swapChainIndex) {
     ctx.device.resetCommandPool(ctx.graphics.swapChain.perFrames[swapChainIndex].commandPool);
 
     vk::CommandBuffer cmd = ctx.graphics.swapChain.perFrames[swapChainIndex].commandBuffer;
-    vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+    constexpr vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
 
     cmd.begin(beginInfo);
     vkHelpers::TransitionImageLayout(cmd,
@@ -573,7 +574,7 @@ void Application::Render(uint32_t swapChainIndex) {
                                      vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
     );
 
-    vk::ClearValue clearValue{
+    constexpr vk::ClearValue clearValue{
         .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
     };
 
@@ -587,7 +588,7 @@ void Application::Render(uint32_t swapChainIndex) {
     };
 
     // Begin rendering
-    vk::RenderingInfo renderingInfo{
+    const vk::RenderingInfo renderingInfo{
         .renderArea = {
             // Initialize the nested `VkRect2D` structure
             .offset = {0, 0}, // Initialize the `VkOffset2D` inside `renderArea`
@@ -607,7 +608,7 @@ void Application::Render(uint32_t swapChainIndex) {
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphics.pipeline);
 
     // Set viewport dynamically
-    vk::Viewport vp{
+    const vk::Viewport vp{
         .width = static_cast<float>(ctx.graphics.swapChain.dimensions.width),
         .height = static_cast<float>(ctx.graphics.swapChain.dimensions.height),
         .minDepth = 0.0f,
@@ -617,7 +618,7 @@ void Application::Render(uint32_t swapChainIndex) {
     cmd.setViewport(0, vp);
 
     // Set scissor dynamically
-    vk::Rect2D scissor{
+    const vk::Rect2D scissor{
         .extent = {
             .width = ctx.graphics.swapChain.dimensions.width,
             .height = ctx.graphics.swapChain.dimensions.height
@@ -648,7 +649,7 @@ void Application::Render(uint32_t swapChainIndex) {
 
     vk::PipelineStageFlags waitStage = {vk::PipelineStageFlagBits::eTopOfPipe};
 
-    vk::SubmitInfo submitInfo{
+    const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].imageAvailable,
         .pWaitDstStageMask = &waitStage,
@@ -662,7 +663,7 @@ void Application::Render(uint32_t swapChainIndex) {
 }
 
 void Application::PresentImage(uint32_t swapChainIndex) {
-    vk::PresentInfoKHR presentInfo{
+    const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].renderFinished,
         .swapchainCount = 1,
@@ -670,7 +671,7 @@ void Application::PresentImage(uint32_t swapChainIndex) {
         .pImageIndices = &swapChainIndex
     };
 
-    auto result = ctx.graphics.queue.presentKHR(presentInfo);
+    const auto result = ctx.graphics.queue.presentKHR(presentInfo);
     if (result != vk::Result::eSuccess) {
         // TODO: check for resize
     }
@@ -683,7 +684,11 @@ void Application::Update() {
 }
 
 void Application::Cleanup() {
-    // Vulkan Cleanup
+    VulkanCleanup();
+    GLFWCleanup();
+}
+
+void Application::VulkanCleanup() {
     // Don't release anything until the GPU is completely idle.
     if (ctx.device) {
         ctx.device.waitIdle();
@@ -703,7 +708,7 @@ void Application::Cleanup() {
         ctx.device.destroyPipelineLayout(ctx.graphics.pipelineLayout);
     }
 
-    for (vk::ImageView imageView : ctx.graphics.swapChain.imagesViews) {
+    for (const vk::ImageView imageView : ctx.graphics.swapChain.imagesViews) {
         ctx.device.destroyImageView(imageView);
     }
 
@@ -730,13 +735,14 @@ void Application::Cleanup() {
     if (ctx.debugCallback) {
         ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
     }
+}
 
-    // GLFW Cleanup
+void Application::GLFWCleanup() const {
     glfwDestroyWindow(window);
     glfwTerminate();
 }
 
-void Application::PerFrame::Destroy(vk::Device device) {
+void Application::PerFrame::Destroy(const vk::Device device) const {
     if (inFlight) device.destroyFence(inFlight);
     if (commandBuffer) device.freeCommandBuffers(commandPool, commandBuffer);
     if (commandPool) device.destroyCommandPool(commandPool);

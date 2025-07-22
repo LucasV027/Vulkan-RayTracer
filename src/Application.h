@@ -32,6 +32,8 @@ private:
     void PresentImage(uint32_t swapChainIndex);
 
     void Cleanup();
+    void VulkanCleanup();
+    void GLFWCleanup() const;
 
 private:
     std::string name = "Vulkan-RayTracer";
@@ -45,7 +47,7 @@ private:
         vk::Semaphore renderFinished = nullptr;
         vk::Fence inFlight = nullptr;
 
-        void Destroy(vk::Device device);
+        void Destroy(vk::Device device) const;
     };
 
     const std::vector<float> vertices = {
