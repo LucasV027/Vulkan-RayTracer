@@ -531,55 +531,46 @@ void Application::CreateVertexBuffer() {
     ctx.device.unmapMemory(ctx.graphics.vertexBufferMemory);
 }
 
-void Application::Update() {
+uint32_t Application::AcquireNextImage() {
     vk::Semaphore acquireSemaphore = ctx.device.createSemaphore({});
 
-    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.graphics.swapChain.handle, UINT64_MAX,
+    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.graphics.swapChain.handle,
+                                                               UINT64_MAX,
                                                                acquireSemaphore);
-    if (result != vk::Result::eSuccess) {
-        // TODO: check for resize
-    }
 
     if (ctx.graphics.swapChain.perFrames[imageIndex].inFlight) {
-        result = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight, true, UINT64_MAX);
-        assert(result == vk::Result::eSuccess);
+        auto waitResult = ctx.device.waitForFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight,
+                                                   true,
+                                                   UINT64_MAX);
+        assert(waitResult == vk::Result::eSuccess);
         ctx.device.resetFences(ctx.graphics.swapChain.perFrames[imageIndex].inFlight);
     }
-
-    ctx.device.resetCommandPool(ctx.graphics.swapChain.perFrames[imageIndex].commandPool);
 
     ctx.device.destroySemaphore(ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable);
     ctx.graphics.swapChain.perFrames[imageIndex].imageAvailable = acquireSemaphore;
 
-    Render(imageIndex);
-
-    vk::PresentInfoKHR presentInfo{
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[imageIndex].renderFinished,
-        .swapchainCount = 1,
-        .pSwapchains = &ctx.graphics.swapChain.handle,
-        .pImageIndices = &imageIndex
-    };
-
-    auto valid = ctx.graphics.queue.presentKHR(presentInfo);
-    if (valid == vk::Result::eSuccess) {
+    if (result != vk::Result::eSuccess) {
         // TODO: check for resize
     }
+
+    return imageIndex;
 }
 
 void Application::Render(uint32_t swapChainIndex) {
+    ctx.device.resetCommandPool(ctx.graphics.swapChain.perFrames[swapChainIndex].commandPool);
+
     vk::CommandBuffer cmd = ctx.graphics.swapChain.perFrames[swapChainIndex].commandBuffer;
     vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
 
     cmd.begin(beginInfo);
-    TransitionImageLayout(cmd,
-                          ctx.graphics.swapChain.images[swapChainIndex],
-                          vk::ImageLayout::eUndefined,
-                          vk::ImageLayout::eColorAttachmentOptimal,
-                          {}, // srcAccessMask (no need to wait for previous operations)
-                          vk::AccessFlagBits2::eColorAttachmentWrite, // dstAccessMask
-                          vk::PipelineStageFlagBits2::eTopOfPipe, // srcStage
-                          vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
+    vkHelpers::TransitionImageLayout(cmd,
+                                     ctx.graphics.swapChain.images[swapChainIndex],
+                                     vk::ImageLayout::eUndefined,
+                                     vk::ImageLayout::eColorAttachmentOptimal,
+                                     {}, // srcAccessMask (no need to wait for previous operations)
+                                     vk::AccessFlagBits2::eColorAttachmentWrite, // dstAccessMask
+                                     vk::PipelineStageFlagBits2::eTopOfPipe, // srcStage
+                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
     );
 
     vk::ClearValue clearValue{
@@ -643,14 +634,14 @@ void Application::Render(uint32_t swapChainIndex) {
 
     cmd.endRendering();
 
-    TransitionImageLayout(cmd,
-                          ctx.graphics.swapChain.images[swapChainIndex],
-                          vk::ImageLayout::eColorAttachmentOptimal,
-                          vk::ImageLayout::ePresentSrcKHR,
-                          vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-                          {},                                                 // dstAccessMask
-                          vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                          vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
+    vkHelpers::TransitionImageLayout(cmd,
+                                     ctx.graphics.swapChain.images[swapChainIndex],
+                                     vk::ImageLayout::eColorAttachmentOptimal,
+                                     vk::ImageLayout::ePresentSrcKHR,
+                                     vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
+                                     {},                                                 // dstAccessMask
+                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
+                                     vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
     );
 
     cmd.end();
@@ -670,55 +661,28 @@ void Application::Render(uint32_t swapChainIndex) {
     ctx.graphics.queue.submit(submitInfo, ctx.graphics.swapChain.perFrames[swapChainIndex].inFlight);
 }
 
-void Application::TransitionImageLayout(vk::CommandBuffer cmd,
-                                        vk::Image image,
-                                        vk::ImageLayout oldLayout,
-                                        vk::ImageLayout newLayout,
-                                        vk::AccessFlags2 srcAccessMask,
-                                        vk::AccessFlags2 dstAccessMask,
-                                        vk::PipelineStageFlags2 srcStage,
-                                        vk::PipelineStageFlags2 dstStage) {
-    // Initialize the VkImageMemoryBarrier2 structure
-    vk::ImageMemoryBarrier2 image_barrier{
-        // Specify the pipeline stages and access masks for the barrier
-        .srcStageMask = srcStage,       // Source pipeline stage mask
-        .srcAccessMask = srcAccessMask, // Source access mask
-        .dstStageMask = dstStage,       // Destination pipeline stage mask
-        .dstAccessMask = dstAccessMask, // Destination access mask
-
-        // Specify the old and new layouts of the image
-        .oldLayout = oldLayout, // Current layout of the image
-        .newLayout = newLayout, // Target layout of the image
-
-        // We are not changing the ownership between queues
-        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-
-        // Specify the image to be affected by this barrier
-        .image = image,
-
-        // Define the subresource range (which parts of the image are affected)
-        .subresourceRange = {
-            .aspectMask = vk::ImageAspectFlagBits::eColor, // Affects the color aspect of the image
-            .baseMipLevel = 0,                             // Start at mip level 0
-            .levelCount = 1,                               // Number of mip levels affected
-            .baseArrayLayer = 0,                           // Start at array layer 0
-            .layerCount = 1                                // Number of array layers affected
-        }
+void Application::PresentImage(uint32_t swapChainIndex) {
+    vk::PresentInfoKHR presentInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &ctx.graphics.swapChain.perFrames[swapChainIndex].renderFinished,
+        .swapchainCount = 1,
+        .pSwapchains = &ctx.graphics.swapChain.handle,
+        .pImageIndices = &swapChainIndex
     };
 
-    // Initialize the VkDependencyInfo structure
-    vk::DependencyInfo dependency_info{
-        .dependencyFlags = {},                 // No special dependency flags
-        .imageMemoryBarrierCount = 1,          // Number of image memory barriers
-        .pImageMemoryBarriers = &image_barrier // Pointer to the image memory barrier(s)
-    };
-
-    // Record the pipeline barrier into the command buffer
-    cmd.pipelineBarrier2(dependency_info);
+    auto result = ctx.graphics.queue.presentKHR(presentInfo);
+    if (result != vk::Result::eSuccess) {
+        // TODO: check for resize
+    }
 }
 
-void Application::Cleanup() const {
+void Application::Update() {
+    const auto imageIndex = AcquireNextImage();
+    Render(imageIndex);
+    PresentImage(imageIndex);
+}
+
+void Application::Cleanup() {
     // Vulkan Cleanup
     // Don't release anything until the GPU is completely idle.
     if (ctx.device) {
@@ -726,12 +690,10 @@ void Application::Cleanup() const {
     }
 
     for (auto& perFrame : ctx.graphics.swapChain.perFrames) {
-        if (perFrame.inFlight) ctx.device.destroyFence(perFrame.inFlight);
-        if (perFrame.commandBuffer) ctx.device.freeCommandBuffers(perFrame.commandPool, perFrame.commandBuffer);
-        if (perFrame.commandPool) ctx.device.destroyCommandPool(perFrame.commandPool);
-        if (perFrame.imageAvailable) ctx.device.destroySemaphore(perFrame.imageAvailable);
-        if (perFrame.renderFinished) ctx.device.destroySemaphore(perFrame.renderFinished);
+        perFrame.Destroy(ctx.device);
     }
+
+    ctx.graphics.swapChain.perFrames.clear();
 
     if (ctx.graphics.pipeline) {
         ctx.device.destroyPipeline(ctx.graphics.pipeline);
@@ -772,4 +734,12 @@ void Application::Cleanup() const {
     // GLFW Cleanup
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+void Application::PerFrame::Destroy(vk::Device device) {
+    if (inFlight) device.destroyFence(inFlight);
+    if (commandBuffer) device.freeCommandBuffers(commandPool, commandBuffer);
+    if (commandPool) device.destroyCommandPool(commandPool);
+    if (imageAvailable) device.destroySemaphore(imageAvailable);
+    if (renderFinished) device.destroySemaphore(renderFinished);
 }

@@ -15,4 +15,13 @@ namespace vkHelpers {
 #endif
 
     vk::ShaderModule CreateShaderModule(vk::Device device, const std::filesystem::path& filepath);
+
+    void TransitionImageLayout(vk::CommandBuffer cmd,
+                               vk::Image image,
+                               vk::ImageLayout oldLayout,
+                               vk::ImageLayout newLayout,
+                               vk::AccessFlags2 srcAccessMask,
+                               vk::AccessFlags2 dstAccessMask,
+                               vk::PipelineStageFlags2 srcStage,
+                               vk::PipelineStageFlags2 dstStage);
 }

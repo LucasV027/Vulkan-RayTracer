@@ -56,5 +56,53 @@ vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const st
     return device.createShaderModule(createModuleInfo);
 }
 
+void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
+                                        vk::Image image,
+                                        vk::ImageLayout oldLayout,
+                                        vk::ImageLayout newLayout,
+                                        vk::AccessFlags2 srcAccessMask,
+                                        vk::AccessFlags2 dstAccessMask,
+                                        vk::PipelineStageFlags2 srcStage,
+                                        vk::PipelineStageFlags2 dstStage) {
+    // Initialize the VkImageMemoryBarrier2 structure
+    vk::ImageMemoryBarrier2 imageBarrier{
+        // Specify the pipeline stages and access masks for the barrier
+        .srcStageMask = srcStage,       // Source pipeline stage mask
+        .srcAccessMask = srcAccessMask, // Source access mask
+        .dstStageMask = dstStage,       // Destination pipeline stage mask
+        .dstAccessMask = dstAccessMask, // Destination access mask
+
+        // Specify the old and new layouts of the image
+        .oldLayout = oldLayout, // Current layout of the image
+        .newLayout = newLayout, // Target layout of the image
+
+        // We are not changing the ownership between queues
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+
+        // Specify the image to be affected by this barrier
+        .image = image,
+
+        // Define the subresource range (which parts of the image are affected)
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor, // Affects the color aspect of the image
+            .baseMipLevel = 0,                             // Start at mip level 0
+            .levelCount = 1,                               // Number of mip levels affected
+            .baseArrayLayer = 0,                           // Start at array layer 0
+            .layerCount = 1                                // Number of array layers affected
+        }
+    };
+
+    // Initialize the VkDependencyInfo structure
+    vk::DependencyInfo dependencyInfo{
+        .dependencyFlags = {},                // No special dependency flags
+        .imageMemoryBarrierCount = 1,         // Number of image memory barriers
+        .pImageMemoryBarriers = &imageBarrier // Pointer to the image memory barrier(s)
+    };
+
+    // Record the pipeline barrier into the command buffer
+    cmd.pipelineBarrier2(dependencyInfo);
+}
+
 
 

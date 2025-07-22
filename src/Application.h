@@ -26,18 +26,12 @@ private:
     void CreateVertexBuffer();
 
     void Update();
+
+    uint32_t AcquireNextImage();
     void Render(uint32_t swapChainIndex);
+    void PresentImage(uint32_t swapChainIndex);
 
-    static void TransitionImageLayout(vk::CommandBuffer cmd,
-                                      vk::Image image,
-                                      vk::ImageLayout oldLayout,
-                                      vk::ImageLayout newLayout,
-                                      vk::AccessFlags2 srcAccessMask,
-                                      vk::AccessFlags2 dstAccessMask,
-                                      vk::PipelineStageFlags2 srcStage,
-                                      vk::PipelineStageFlags2 dstStage);
-
-    void Cleanup() const;
+    void Cleanup();
 
 private:
     std::string name = "Vulkan-RayTracer";
@@ -50,6 +44,8 @@ private:
         vk::Semaphore imageAvailable = nullptr;
         vk::Semaphore renderFinished = nullptr;
         vk::Fence inFlight = nullptr;
+
+        void Destroy(vk::Device device);
     };
 
     const std::vector<float> vertices = {
