@@ -32,7 +32,6 @@ void Application::InitWindow() {
     if (!glfwInit()) throw std::runtime_error("Failed to initialize GLFW");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // No resize yet !
 
     window = glfwCreateWindow(width, height, appName.c_str(), nullptr, nullptr);
     if (!window) throw std::runtime_error("Failed to create GLFW window");
@@ -43,14 +42,7 @@ void Application::InitVulkan() {
     CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
-
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
-    ctx.swapChainDimensions.width = width;
-    ctx.swapChainDimensions.height = height;
-
     CreateSwapChain();
-
     CreateGraphicsPipeline();
     CreateVertexBuffer();
 }
@@ -258,6 +250,11 @@ void Application::CreateSwapChain() {
         }
     }
 
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    ctx.swapChainDimensions.width = width;
+    ctx.swapChainDimensions.height = height;
+
     vk::Extent2D extent;
     if (capabilities.currentExtent.width == UINT32_MAX) {
         extent.width = std::clamp(ctx.swapChainDimensions.width,
@@ -276,6 +273,8 @@ void Application::CreateSwapChain() {
         imageCount = std::min(imageCount, capabilities.maxImageCount);
     imageCount = std::max(imageCount, capabilities.minImageCount);
 
+    auto oldSwapChain = ctx.swapChain;
+
     vk::SwapchainCreateInfoKHR createInfo{
         .surface = ctx.surface,
         .minImageCount = imageCount,
@@ -288,11 +287,21 @@ void Application::CreateSwapChain() {
         .preTransform = capabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
         .presentMode = presentMode,
-        .clipped = true
+        .clipped = true,
+        .oldSwapchain = oldSwapChain
     };
 
     ctx.swapChain = ctx.device.createSwapchainKHR(createInfo);
     ctx.swapChainImages = ctx.device.getSwapchainImagesKHR(ctx.swapChain);
+
+    if (oldSwapChain) {
+        for (vk::ImageView imageView : ctx.swapChainImagesViews) ctx.device.destroyImageView(imageView);
+        ctx.swapChainImagesViews.clear();
+
+        for (auto& perFrame : ctx.perFrames) perFrame.Destroy(ctx.device);
+
+        ctx.device.destroySwapchainKHR(oldSwapChain);
+    }
 
     for (auto const& swapChainImage : ctx.swapChainImages) {
         vk::ImageViewCreateInfo viewCreateInfo{
@@ -300,7 +309,10 @@ void Application::CreateSwapChain() {
             .viewType = vk::ImageViewType::e2D,
             .format = ctx.swapChainDimensions.format,
             .subresourceRange = {
-                .aspectMask = vk::ImageAspectFlagBits::eColor, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0,
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
                 .layerCount = 1
             }
         };
@@ -311,25 +323,8 @@ void Application::CreateSwapChain() {
     ctx.perFrames.clear();
     ctx.perFrames.resize(ctx.swapChainImages.size());
 
-    for (auto& [commandPool, commandBuffer, imageAvailable, renderFinished, inFlight] : ctx.
-         perFrames) {
-        vk::CommandPoolCreateInfo commandPoolCreateInfo{
-            .flags = vk::CommandPoolCreateFlagBits::eTransient,
-            .queueFamilyIndex = ctx.graphicsQueueIndex,
-        };
-
-        commandPool = ctx.device.createCommandPool(commandPoolCreateInfo);
-
-        vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
-            .commandPool = commandPool,
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = 1
-        };
-        commandBuffer = ctx.device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
-
-        inFlight = ctx.device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
-        imageAvailable = ctx.device.createSemaphore({});
-        renderFinished = ctx.device.createSemaphore({});
+    for (auto& perFrame : ctx.perFrames) {
+        perFrame.Init(ctx.device, ctx.graphicsQueueIndex);
     }
 }
 
@@ -532,27 +527,29 @@ void Application::CreateVertexBuffer() {
     ctx.device.unmapMemory(ctx.vertexBufferMemory);
 }
 
-uint32_t Application::AcquireNextImage() {
-    const auto acquireSemaphore = ctx.device.createSemaphore({});
+std::expected<uint32_t, Application::AcquireError> Application::AcquireNextImage() {
+    auto acquireSemaphore = ctx.device.createSemaphoreUnique({});
 
-    auto [result, imageIndex] = ctx.device.acquireNextImageKHR(ctx.swapChain,
-                                                               UINT64_MAX,
-                                                               acquireSemaphore);
+    uint32_t imageIndex;
+    vk::Result result;
+    try {
+        std::tie(result, imageIndex) = ctx.device.acquireNextImageKHR(
+            ctx.swapChain, UINT64_MAX, acquireSemaphore.get());
+    } catch (vk::OutOfDateKHRError&) {
+        return std::unexpected(AcquireError::OutOfDate);
+    }
+
+    if (result == vk::Result::eSuboptimalKHR) return std::unexpected(AcquireError::Suboptimal);
+    if (result != vk::Result::eSuccess) return std::unexpected(AcquireError::Failed);
 
     if (ctx.perFrames[imageIndex].inFlight) {
-        const auto waitResult = ctx.device.waitForFences(ctx.perFrames[imageIndex].inFlight,
-                                                         true,
-                                                         UINT64_MAX);
+        const auto waitResult = ctx.device.waitForFences(
+            ctx.perFrames[imageIndex].inFlight, true, UINT64_MAX);
         assert(waitResult == vk::Result::eSuccess);
         ctx.device.resetFences(ctx.perFrames[imageIndex].inFlight);
     }
 
-    ctx.device.destroySemaphore(ctx.perFrames[imageIndex].imageAvailable);
-    ctx.perFrames[imageIndex].imageAvailable = acquireSemaphore;
-
-    if (result != vk::Result::eSuccess) {
-        // TODO: check for resize
-    }
+    ctx.perFrames[imageIndex].imageAvailable = std::move(acquireSemaphore);
 
     return imageIndex;
 }
@@ -651,7 +648,7 @@ void Application::Render(const uint32_t swapChainIndex) {
 
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].imageAvailable,
+        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].imageAvailable.get(),
         .pWaitDstStageMask = &waitStage,
         .commandBufferCount = 1,
         .pCommandBuffers = &cmd,
@@ -662,7 +659,7 @@ void Application::Render(const uint32_t swapChainIndex) {
     ctx.graphicsQueue.submit(submitInfo, ctx.perFrames[swapChainIndex].inFlight);
 }
 
-void Application::PresentImage(uint32_t swapChainIndex) {
+bool Application::PresentImage(uint32_t swapChainIndex) {
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &ctx.perFrames[swapChainIndex].renderFinished,
@@ -671,16 +668,59 @@ void Application::PresentImage(uint32_t swapChainIndex) {
         .pImageIndices = &swapChainIndex
     };
 
-    const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
-    if (result != vk::Result::eSuccess) {
-        // TODO: check for resize
+    try {
+        const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
+        if (result == vk::Result::eSuboptimalKHR) {
+            return false;
+        }
+    } catch (vk::OutOfDateKHRError&) {
+        return false;
+    }
+
+    return true;
+}
+
+void Application::Resize() {
+    int width = 0, height = 0;
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    ctx.device.waitIdle();
+
+    const auto surfaceProperties = ctx.gpu.getSurfaceCapabilitiesKHR(ctx.surface);
+
+    const bool dimensionsChanged =
+        surfaceProperties.currentExtent.width != ctx.swapChainDimensions.width ||
+        surfaceProperties.currentExtent.height != ctx.swapChainDimensions.height;
+
+    if (dimensionsChanged) {
+        CreateSwapChain();
     }
 }
 
 void Application::Update() {
-    const auto imageIndex = AcquireNextImage();
-    Render(imageIndex);
-    PresentImage(imageIndex);
+    const auto acquireResult = AcquireNextImage();
+
+    if (!acquireResult) {
+        if (acquireResult.error() == AcquireError::Failed) {
+            ctx.device.waitIdle();
+            LOGE("Acquire failed");
+            return;
+        }
+
+        Resize();
+        return;
+    }
+
+    Render(acquireResult.value());
+
+    const auto presentResult = PresentImage(acquireResult.value());
+    if (!presentResult) {
+        Resize();
+        return;
+    }
 }
 
 void Application::Cleanup() {
@@ -742,10 +782,29 @@ void Application::GLFWCleanup() const {
     glfwTerminate();
 }
 
+void Application::PerFrame::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {
+    vk::CommandPoolCreateInfo commandPoolCreateInfo{
+        .flags = vk::CommandPoolCreateFlagBits::eTransient,
+        .queueFamilyIndex = graphicsQueueIndex,
+    };
+
+    commandPool = device.createCommandPool(commandPoolCreateInfo);
+
+    vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
+        .commandPool = commandPool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1
+    };
+    commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+
+    inFlight = device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+    imageAvailable = device.createSemaphoreUnique({});
+    renderFinished = device.createSemaphore({});
+}
+
 void Application::PerFrame::Destroy(const vk::Device device) const {
     if (inFlight) device.destroyFence(inFlight);
     if (commandBuffer) device.freeCommandBuffers(commandPool, commandBuffer);
     if (commandPool) device.destroyCommandPool(commandPool);
-    if (imageAvailable) device.destroySemaphore(imageAvailable);
     if (renderFinished) device.destroySemaphore(renderFinished);
 }

@@ -27,9 +27,17 @@ private:
 
     void Update();
 
-    uint32_t AcquireNextImage();
+    enum class AcquireError {
+        Suboptimal,
+        OutOfDate,
+        Failed,
+    };
+
+    std::expected<uint32_t, AcquireError> AcquireNextImage();
     void Render(uint32_t swapChainIndex);
-    void PresentImage(uint32_t swapChainIndex);
+    bool PresentImage(uint32_t swapChainIndex);
+
+    void Resize();
 
     void Cleanup();
     void VulkanCleanup();
@@ -39,6 +47,7 @@ private:
     std::string appName = "Vulkan-RayTracer";
     int width = 800;
     int height = 600;
+    bool shouldResize = false;
 
     const std::vector<float> vertices = {
         0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
@@ -54,10 +63,11 @@ private:
     struct PerFrame {
         vk::CommandPool commandPool = nullptr;
         vk::CommandBuffer commandBuffer = nullptr;
-        vk::Semaphore imageAvailable = nullptr;
+        vk::UniqueSemaphore imageAvailable;
         vk::Semaphore renderFinished = nullptr;
         vk::Fence inFlight = nullptr;
 
+        void Init(vk::Device device, uint32_t graphicsQueueIndex);
         void Destroy(vk::Device device) const;
     };
 
