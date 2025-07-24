@@ -3,10 +3,22 @@
 #include "Vulkan.h"
 #include "Window.h"
 
-const std::vector<float> vertices = {
+const std::vector vertices = {
     0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
     0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
     -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
+};
+
+struct FrameContext {
+    vk::CommandPool commandPool = nullptr;
+    vk::CommandBuffer commandBuffer = nullptr;
+    vk::UniqueSemaphore imageAvailable;
+    vk::Semaphore renderFinished = nullptr;
+    vk::Fence inFlight = nullptr;
+    uint32_t index;
+
+    void Init(vk::Device device, uint32_t graphicsQueueIndex);
+    void Destroy(vk::Device device) const;
 };
 
 class Renderer {
@@ -14,11 +26,22 @@ public:
     explicit Renderer(const std::shared_ptr<Window>& window);
     ~Renderer();
 
-    void RenderFrame();
+    void Begin();
+    void Draw();
+
+private:
+    FrameContext* BeginFrame();
+    void Render(const FrameContext& fc) const;
+    void SubmitUI(const FrameContext& fc) const;
+    void Submit(const FrameContext& fc) const;
+    void Present(const FrameContext& fc);
 
 private:
     void Init();
+    void InitImGUI();
+
     void Cleanup();
+    void CleanupImGui();
 
     enum class AcquireError {
         Suboptimal,
@@ -27,7 +50,6 @@ private:
     };
 
     std::expected<uint32_t, AcquireError> AcquireNextImage();
-    void RenderTriangle(uint32_t swapChainIndex);
     bool PresentImage(uint32_t swapChainIndex);
 
     void Resize();
@@ -42,17 +64,6 @@ private:
 
 private:
     std::shared_ptr<Window> windowRef;
-
-    struct PerFrame {
-        vk::CommandPool commandPool = nullptr;
-        vk::CommandBuffer commandBuffer = nullptr;
-        vk::UniqueSemaphore imageAvailable;
-        vk::Semaphore renderFinished = nullptr;
-        vk::Fence inFlight = nullptr;
-
-        void Init(vk::Device device, uint32_t graphicsQueueIndex);
-        void Destroy(vk::Device device) const;
-    };
 
     struct {
         vk::Instance instance = nullptr;
@@ -70,7 +81,7 @@ private:
         vk::SwapchainKHR swapChain = nullptr;
         std::vector<vk::Image> swapChainImages;
         std::vector<vk::ImageView> swapChainImagesViews;
-        std::vector<PerFrame> perFrames;
+        std::vector<FrameContext> perFrames;
 
         struct {
             uint32_t width = 0;
@@ -83,5 +94,7 @@ private:
 
         uint32_t computeQueueIndex = -1;
         vk::Queue computeQueue = nullptr;
+
+        vk::DescriptorPool imguiDescriptorPool = nullptr;
     } ctx;
 };

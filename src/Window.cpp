@@ -49,6 +49,8 @@ const char* Window::GetTitle() const {
     return glfwGetWindowTitle(handle);
 }
 
+GLFWwindow* Window::Handle() const { return handle; }
+
 VkSurfaceKHR Window::CreateSurface(VkInstance instance) const {
     VkSurfaceKHR rawSurface;
     if (glfwCreateWindowSurface(instance, handle, nullptr, &rawSurface) != VK_SUCCESS) {

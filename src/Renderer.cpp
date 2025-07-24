@@ -1,5 +1,9 @@
 #include "Renderer.h"
 
+#include <imgui.h>
+#include <imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
+
 #include <set>
 
 #include "Log.h"
@@ -7,32 +11,199 @@
 Renderer::Renderer(const std::shared_ptr<Window>& window) {
     windowRef = window;
     Init();
+    InitImGUI();
 }
 
 Renderer::~Renderer() {
+    // Don't release anything until the GPU is completely idle.
+    if (ctx.device) ctx.device.waitIdle();
+
+    CleanupImGui();
     Cleanup();
 }
 
-void Renderer::RenderFrame() {
+void Renderer::Draw() {
+    if (const auto fc = BeginFrame()) {
+        Render(*fc);
+        SubmitUI(*fc);
+        Submit(*fc);
+        Present(*fc);
+    }
+}
+
+void Renderer::Begin() {
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+FrameContext* Renderer::BeginFrame() {
     const auto acquireResult = AcquireNextImage();
-
     if (!acquireResult) {
-        if (acquireResult.error() == AcquireError::Failed) {
-            ctx.device.waitIdle();
-            LOGE("Acquire failed");
-            return;
-        }
-
-        Resize();
-        return;
+        if (acquireResult.error() == AcquireError::Failed) ctx.device.waitIdle();
+        else Resize();
+        return nullptr;
     }
 
-    RenderTriangle(acquireResult.value());
+    const uint32_t index = *acquireResult;
+    auto& frame = ctx.perFrames[index];
+    frame.index = index;
 
-    const auto presentResult = PresentImage(acquireResult.value());
-    if (!presentResult) {
+    ctx.device.resetCommandPool(frame.commandPool);
+
+    frame.commandBuffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+    });
+
+    vkHelpers::TransitionImageLayout(frame.commandBuffer,
+                                     ctx.swapChainImages[frame.index],
+                                     vk::ImageLayout::eUndefined,
+                                     vk::ImageLayout::eColorAttachmentOptimal,
+                                     {}, // srcAccessMask (no need to wait for previous operations)
+                                     vk::AccessFlagBits2::eColorAttachmentWrite, // dstAccessMask
+                                     vk::PipelineStageFlagBits2::eTopOfPipe, // srcStage
+                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
+    );
+
+    return &frame;
+}
+
+void Renderer::Render(const FrameContext& fc) const {
+    constexpr vk::ClearValue clearValue{
+        .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
+    };
+
+    vk::RenderingAttachmentInfo colorAttachment{
+        .imageView = ctx.swapChainImagesViews[fc.index],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = clearValue
+    };
+
+    const vk::RenderingInfo renderingInfo{
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {
+                .width = ctx.swapChainDimensions.width,
+                .height = ctx.swapChainDimensions.height
+            }
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment
+    };
+
+    fc.commandBuffer.beginRendering(renderingInfo);
+
+    fc.commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphicsPipeline);
+
+    const vk::Viewport vp{
+        .width = static_cast<float>(ctx.swapChainDimensions.width),
+        .height = static_cast<float>(ctx.swapChainDimensions.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    const vk::Rect2D scissor{
+        .extent = {
+            .width = ctx.swapChainDimensions.width,
+            .height = ctx.swapChainDimensions.height
+        }
+    };
+
+    fc.commandBuffer.setViewport(0, vp);
+    fc.commandBuffer.setScissor(0, scissor);
+
+    fc.commandBuffer.setCullMode(vk::CullModeFlagBits::eNone);
+    fc.commandBuffer.setFrontFace(vk::FrontFace::eClockwise);
+    fc.commandBuffer.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
+
+    fc.commandBuffer.bindVertexBuffers(0, ctx.vertexBuffer, {0});
+    fc.commandBuffer.draw(vertices.size(), 1, 0, 0);
+
+    fc.commandBuffer.endRendering();
+}
+
+void Renderer::SubmitUI(const FrameContext& fc) const {
+    ImGui::Render();
+
+    constexpr vk::ClearValue clearValue{
+        .color = std::array<float, 4>({{0.f, 0.f, 0.f, 0.f}}), // useless (only for API)
+    };
+
+    vk::RenderingAttachmentInfo colorAttachment{
+        .imageView = ctx.swapChainImagesViews[fc.index],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = clearValue
+    };
+
+    const vk::RenderingInfo renderingInfo{
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {
+                .width = ctx.swapChainDimensions.width,
+                .height = ctx.swapChainDimensions.height
+            }
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment
+    };
+
+    fc.commandBuffer.beginRendering(renderingInfo);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), fc.commandBuffer);
+
+    fc.commandBuffer.endRendering();
+}
+
+void Renderer::Submit(const FrameContext& fc) const {
+    vkHelpers::TransitionImageLayout(fc.commandBuffer,
+                                     ctx.swapChainImages[fc.index],
+                                     vk::ImageLayout::eColorAttachmentOptimal,
+                                     vk::ImageLayout::ePresentSrcKHR,
+                                     vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
+                                     {},                                                 // dstAccessMask
+                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
+                                     vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
+    );
+
+    fc.commandBuffer.end();
+
+    vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+    const vk::SubmitInfo submitInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &fc.imageAvailable.get(),
+        .pWaitDstStageMask = &waitStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &fc.commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &fc.renderFinished
+    };
+
+    ctx.graphicsQueue.submit(submitInfo, fc.inFlight);
+}
+
+void Renderer::Present(const FrameContext& fc) {
+    const vk::PresentInfoKHR presentInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &fc.renderFinished,
+        .swapchainCount = 1,
+        .pSwapchains = &ctx.swapChain,
+        .pImageIndices = &fc.index
+    };
+
+    try {
+        const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
+        if (result == vk::Result::eSuboptimalKHR) {
+            Resize();
+        }
+    } catch (vk::OutOfDateKHRError&) {
         Resize();
-        return;
     }
 }
 
@@ -46,53 +217,86 @@ void Renderer::Init() {
     CreateVertexBuffer();
 }
 
+void Renderer::InitImGUI() {
+    std::array poolSizes = {
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eCombinedImageSampler, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampledImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eInputAttachment, 1000}
+    };
+
+    const vk::DescriptorPoolCreateInfo poolInfo{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = 1000,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data(),
+    };
+
+    ctx.imguiDescriptorPool = ctx.device.createDescriptorPool(poolInfo);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    ImGui::StyleColorsDark();
+
+    // Init GLFW
+    ImGui_ImplGlfw_InitForVulkan(windowRef->Handle(), true);
+
+    // Init Vulkan backend
+    vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &ctx.swapChainDimensions.format,
+    };
+
+    ImGui_ImplVulkan_InitInfo initInfo{
+        .Instance = ctx.instance,
+        .PhysicalDevice = ctx.gpu,
+        .Device = ctx.device,
+        .QueueFamily = ctx.graphicsQueueIndex,
+        .Queue = ctx.graphicsQueue,
+        .DescriptorPool = ctx.imguiDescriptorPool,
+        .MinImageCount = 2,
+        .ImageCount = static_cast<uint32_t>(ctx.swapChainImages.size()),
+        .UseDynamicRendering = true,
+        .PipelineRenderingCreateInfo = pipelineRenderingInfo,
+    };
+
+    ImGui_ImplVulkan_Init(&initInfo);
+}
+
 void Renderer::Cleanup() {
-    // Don't release anything until the GPU is completely idle.
-    if (ctx.device) {
-        ctx.device.waitIdle();
-    }
-
-    for (auto& perFrame : ctx.perFrames) {
-        perFrame.Destroy(ctx.device);
-    }
-
+    for (auto& perFrame : ctx.perFrames) perFrame.Destroy(ctx.device);
     ctx.perFrames.clear();
 
-    if (ctx.graphicsPipeline) {
-        ctx.device.destroyPipeline(ctx.graphicsPipeline);
-    }
+    if (ctx.graphicsPipeline) ctx.device.destroyPipeline(ctx.graphicsPipeline);
+    if (ctx.graphicsPipelineLayout) ctx.device.destroyPipelineLayout(ctx.graphicsPipelineLayout);
 
-    if (ctx.graphicsPipelineLayout) {
-        ctx.device.destroyPipelineLayout(ctx.graphicsPipelineLayout);
-    }
+    for (const vk::ImageView imageView : ctx.swapChainImagesViews) ctx.device.destroyImageView(imageView);
 
-    for (const vk::ImageView imageView : ctx.swapChainImagesViews) {
-        ctx.device.destroyImageView(imageView);
-    }
+    if (ctx.swapChain) ctx.device.destroySwapchainKHR(ctx.swapChain);
+    if (ctx.surface) ctx.instance.destroySurfaceKHR(ctx.surface);
 
-    if (ctx.swapChain) {
-        ctx.device.destroySwapchainKHR(ctx.swapChain);
-    }
+    if (ctx.vertexBuffer) ctx.device.destroyBuffer(ctx.vertexBuffer);
+    if (ctx.vertexBufferMemory) ctx.device.freeMemory(ctx.vertexBufferMemory);
 
-    if (ctx.surface) {
-        ctx.instance.destroySurfaceKHR(ctx.surface);
-    }
+    if (ctx.device) ctx.device.destroy();
 
-    if (ctx.vertexBuffer) {
-        ctx.device.destroyBuffer(ctx.vertexBuffer);
-    }
+    if (ctx.debugCallback) ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
+}
 
-    if (ctx.vertexBufferMemory) {
-        ctx.device.freeMemory(ctx.vertexBufferMemory);
-    }
+void Renderer::CleanupImGui() {
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
-    if (ctx.device) {
-        ctx.device.destroy();
-    }
-
-    if (ctx.debugCallback) {
-        ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
-    }
+    if (ctx.imguiDescriptorPool) ctx.device.destroyDescriptorPool(ctx.imguiDescriptorPool);
 }
 
 std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
@@ -120,111 +324,6 @@ std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
     ctx.perFrames[imageIndex].imageAvailable = std::move(acquireSemaphore);
 
     return imageIndex;
-}
-
-void Renderer::RenderTriangle(const uint32_t swapChainIndex) {
-    ctx.device.resetCommandPool(ctx.perFrames[swapChainIndex].commandPool);
-
-    vk::CommandBuffer cmd = ctx.perFrames[swapChainIndex].commandBuffer;
-    constexpr vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-
-    cmd.begin(beginInfo);
-    vkHelpers::TransitionImageLayout(cmd,
-                                     ctx.swapChainImages[swapChainIndex],
-                                     vk::ImageLayout::eUndefined,
-                                     vk::ImageLayout::eColorAttachmentOptimal,
-                                     {}, // srcAccessMask (no need to wait for previous operations)
-                                     vk::AccessFlagBits2::eColorAttachmentWrite, // dstAccessMask
-                                     vk::PipelineStageFlagBits2::eTopOfPipe, // srcStage
-                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
-    );
-
-    constexpr vk::ClearValue clearValue{
-        .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
-    };
-
-    // Set up the rendering attachment info
-    vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = ctx.swapChainImagesViews[swapChainIndex],
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = clearValue
-    };
-
-    // Begin rendering
-    const vk::RenderingInfo renderingInfo{
-        .renderArea = {
-            // Initialize the nested `VkRect2D` structure
-            .offset = {0, 0}, // Initialize the `VkOffset2D` inside `renderArea`
-            .extent = {
-                // Initialize the `VkExtent2D` inside `renderArea`
-                .width = ctx.swapChainDimensions.width,
-                .height = ctx.swapChainDimensions.height
-            }
-        },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment
-    };
-
-    cmd.beginRendering(renderingInfo);
-
-    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphicsPipeline);
-
-    // Set viewport dynamically
-    const vk::Viewport vp{
-        .width = static_cast<float>(ctx.swapChainDimensions.width),
-        .height = static_cast<float>(ctx.swapChainDimensions.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f
-    };
-
-    cmd.setViewport(0, vp);
-
-    // Set scissor dynamically
-    const vk::Rect2D scissor{
-        .extent = {
-            .width = ctx.swapChainDimensions.width,
-            .height = ctx.swapChainDimensions.height
-        }
-    };
-
-    cmd.setScissor(0, scissor);
-    cmd.setCullMode(vk::CullModeFlagBits::eNone);
-    cmd.setFrontFace(vk::FrontFace::eClockwise);
-    cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
-
-    cmd.bindVertexBuffers(0, ctx.vertexBuffer, {0});
-    cmd.draw(vertices.size(), 1, 0, 0);
-
-    cmd.endRendering();
-
-    vkHelpers::TransitionImageLayout(cmd,
-                                     ctx.swapChainImages[swapChainIndex],
-                                     vk::ImageLayout::eColorAttachmentOptimal,
-                                     vk::ImageLayout::ePresentSrcKHR,
-                                     vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-                                     {},                                                 // dstAccessMask
-                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                                     vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
-    );
-
-    cmd.end();
-
-    vk::PipelineStageFlags waitStage = {vk::PipelineStageFlagBits::eTopOfPipe};
-
-    const vk::SubmitInfo submitInfo{
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].imageAvailable.get(),
-        .pWaitDstStageMask = &waitStage,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &cmd,
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &ctx.perFrames[swapChainIndex].renderFinished
-    };
-
-    ctx.graphicsQueue.submit(submitInfo, ctx.perFrames[swapChainIndex].inFlight);
 }
 
 bool Renderer::PresentImage(uint32_t swapChainIndex) {
@@ -742,7 +841,7 @@ void Renderer::CreateVertexBuffer() {
     ctx.device.unmapMemory(ctx.vertexBufferMemory);
 }
 
-void Renderer::PerFrame::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {
+void FrameContext::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {
     vk::CommandPoolCreateInfo commandPoolCreateInfo{
         .flags = vk::CommandPoolCreateFlagBits::eTransient,
         .queueFamilyIndex = graphicsQueueIndex,
@@ -762,7 +861,7 @@ void Renderer::PerFrame::Init(const vk::Device device, const uint32_t graphicsQu
     renderFinished = device.createSemaphore({});
 }
 
-void Renderer::PerFrame::Destroy(const vk::Device device) const {
+void FrameContext::Destroy(const vk::Device device) const {
     if (inFlight) device.destroyFence(inFlight);
     if (commandBuffer) device.freeCommandBuffers(commandPool, commandBuffer);
     if (commandPool) device.destroyCommandPool(commandPool);

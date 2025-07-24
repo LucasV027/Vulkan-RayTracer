@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include <imgui.h>
 #include <set>
 
 #include "Utils.h"
@@ -18,7 +19,10 @@ Application::Application() {
 void Application::Run() const {
     while (!window->ShouldClose()) {
         glfwPollEvents();
-        renderer->RenderFrame();
+        renderer->Begin();
+        ImGui::Begin("[INFO]");
+        ImGui::Text("Window size: %d", width, height);
+        ImGui::End();
+        renderer->Draw();
     }
 }
-

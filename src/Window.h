@@ -17,6 +17,7 @@ public:
     std::pair<uint32_t, uint32_t> GetSize() const;
     std::pair<uint32_t, uint32_t> GetFrameBufferSize() const;
     const char* GetTitle() const;
+    GLFWwindow* Handle() const;
 
     VkSurfaceKHR CreateSurface(VkInstance instance) const;
 
