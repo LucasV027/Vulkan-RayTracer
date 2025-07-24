@@ -11,18 +11,14 @@ const std::vector<float> vertices = {
 
 class Renderer {
 public:
-    void Init(const Window& window);
+    explicit Renderer(const std::shared_ptr<Window>& window);
+    ~Renderer();
+
     void RenderFrame();
-    void Cleanup();
 
 private:
-    void CreateInstance();
-    void CreateSurface();
-    void PickPhysicalDevice();
-    void CreateLogicalDevice();
-    void CreateSwapChain();
-    void CreateGraphicsPipeline();
-    void CreateVertexBuffer();
+    void Init();
+    void Cleanup();
 
     enum class AcquireError {
         Suboptimal,
@@ -36,8 +32,16 @@ private:
 
     void Resize();
 
+    void CreateInstance();
+    void CreateSurface();
+    void PickPhysicalDevice();
+    void CreateLogicalDevice();
+    void CreateSwapChain();
+    void CreateGraphicsPipeline();
+    void CreateVertexBuffer();
+
 private:
-    const Window* windowRef = nullptr;
+    std::shared_ptr<Window> windowRef;
 
     struct PerFrame {
         vk::CommandPool commandPool = nullptr;

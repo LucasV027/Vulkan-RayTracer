@@ -1,12 +1,14 @@
 #include "Window.h"
 
 Window::~Window() {
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(handle);
     windowCount--;
     if (windowCount == 0) glfwTerminate();
 }
 
-void Window::Create(const uint32_t width, const uint32_t height, const std::string& title) {
+std::shared_ptr<Window> Window::Create(const uint32_t width, const uint32_t height, const std::string& title) {
+    auto window = std::make_shared<Window>();
+
     if (windowCount == 0) {
         if (!glfwInit()) {
             throw std::runtime_error("Failed to initialize GLFW");
@@ -15,11 +17,12 @@ void Window::Create(const uint32_t width, const uint32_t height, const std::stri
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+    window->handle = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (!window) { throw std::runtime_error("Failed to create GLFW window"); }
 
     ++windowCount;
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(window->handle);
+    return window;
 }
 
 void Window::PollEvents() const {
@@ -27,24 +30,28 @@ void Window::PollEvents() const {
 }
 
 bool Window::ShouldClose() const {
-    return glfwWindowShouldClose(window);
+    return glfwWindowShouldClose(handle);
 }
 
 std::pair<uint32_t, uint32_t> Window::GetSize() const {
     int width, height;
-    glfwGetWindowSize(window, &width, &height);
+    glfwGetWindowSize(handle, &width, &height);
     return std::make_pair(width, height);
 }
 
 std::pair<uint32_t, uint32_t> Window::GetFrameBufferSize() const {
     int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(handle, &width, &height);
     return std::make_pair(width, height);
+}
+
+const char* Window::GetTitle() const {
+    return glfwGetWindowTitle(handle);
 }
 
 VkSurfaceKHR Window::CreateSurface(VkInstance instance) const {
     VkSurfaceKHR rawSurface;
-    if (glfwCreateWindowSurface(instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(instance, handle, nullptr, &rawSurface) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create window surface.");
     }
 

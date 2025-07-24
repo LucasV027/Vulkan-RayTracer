@@ -9,18 +9,14 @@
 class Application {
 public:
     Application();
-    void Run();
-    ~Application();
-
-private:
-    void Resize();
+    void Run() const;
+    ~Application() = default;
 
 private:
     std::string appName = "Vulkan-RayTracer";
-    int width = 800;
-    int height = 600;
-    bool shouldResize = false;
+    uint32_t width = 800;
+    uint32_t height = 600;
 
-    Window window;
-    Renderer renderer;
+    std::shared_ptr<Window> window;
+    std::shared_ptr<Renderer> renderer;
 };

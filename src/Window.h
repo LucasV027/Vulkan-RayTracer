@@ -10,16 +10,17 @@ public:
     Window() = default;
     ~Window();
 
-    void Create(uint32_t width, uint32_t height, const std::string& title);
+    static std::shared_ptr<Window> Create(uint32_t width, uint32_t height, const std::string& title);
 
     void PollEvents() const;
     bool ShouldClose() const;
     std::pair<uint32_t, uint32_t> GetSize() const;
     std::pair<uint32_t, uint32_t> GetFrameBufferSize() const;
+    const char* GetTitle() const;
 
     VkSurfaceKHR CreateSurface(VkInstance instance) const;
 
 private:
-    GLFWwindow* window = nullptr;
+    GLFWwindow* handle = nullptr;
     inline static int windowCount = 0;
 };
