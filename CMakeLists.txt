@@ -12,6 +12,8 @@ add_executable(${PROJECT_NAME}
         src/Log.h
         src/Utils.h
         src/Utils.cpp
+        src/Window.cpp
+        src/Window.h
 )
 
 include(Dependencies.cmake)

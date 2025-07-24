@@ -7,7 +7,7 @@
 
 Application::Application() {
     try {
-        InitWindow();
+        window.Create(width, height, appName);
         InitVulkan();
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
@@ -20,21 +20,12 @@ void Application::Run() {
     while (running) {
         glfwPollEvents();
         Update();
-        running = !glfwWindowShouldClose(window);
+        running = !window.ShouldClose();
     }
 }
 
 Application::~Application() {
     Cleanup();
-}
-
-void Application::InitWindow() {
-    if (!glfwInit()) throw std::runtime_error("Failed to initialize GLFW");
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    window = glfwCreateWindow(width, height, appName.c_str(), nullptr, nullptr);
-    if (!window) throw std::runtime_error("Failed to create GLFW window");
 }
 
 void Application::InitVulkan() {
@@ -107,12 +98,14 @@ void Application::CreateInstance() {
 }
 
 void Application::CreateSurface() {
-    VkSurfaceKHR rawSurface;
-    if (glfwCreateWindowSurface(ctx.instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create window surface.");
-    }
+    // VkSurfaceKHR rawSurface;
+    // if (glfwCreateWindowSurface(ctx.instance, window, nullptr, &rawSurface) != VK_SUCCESS) {
+    //     throw std::runtime_error("Failed to create window surface.");
+    // }
 
-    ctx.surface = vk::SurfaceKHR(rawSurface);
+    // ctx.surface = vk::SurfaceKHR(rawSurface);
+
+    ctx.surface = window.CreateSurface(ctx.instance);
 }
 
 void Application::PickPhysicalDevice() {
@@ -250,8 +243,7 @@ void Application::CreateSwapChain() {
         }
     }
 
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
+    auto [width, height] = window.GetSize();
     ctx.swapChainDimensions.width = width;
     ctx.swapChainDimensions.height = height;
 
@@ -683,7 +675,7 @@ bool Application::PresentImage(uint32_t swapChainIndex) {
 void Application::Resize() {
     int width = 0, height = 0;
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(window, &width, &height);
+        std::tie(width, height) = window.GetFrameBufferSize();
         glfwWaitEvents();
     }
 
@@ -725,7 +717,6 @@ void Application::Update() {
 
 void Application::Cleanup() {
     VulkanCleanup();
-    GLFWCleanup();
 }
 
 void Application::VulkanCleanup() {
@@ -775,11 +766,6 @@ void Application::VulkanCleanup() {
     if (ctx.debugCallback) {
         ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
     }
-}
-
-void Application::GLFWCleanup() const {
-    if (window) glfwDestroyWindow(window);
-    glfwTerminate();
 }
 
 void Application::PerFrame::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {

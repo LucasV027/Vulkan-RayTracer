@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Vulkan.h"
+#include "Window.h"
 
 class Application {
 public:
@@ -41,7 +42,6 @@ private:
 
     void Cleanup();
     void VulkanCleanup();
-    void GLFWCleanup() const;
 
 private:
     std::string appName = "Vulkan-RayTracer";
@@ -56,7 +56,7 @@ private:
     };
 
     // GLFW
-    GLFWwindow* window = nullptr;
+    Window window;
     bool running = true;
 
     // Vulkan
