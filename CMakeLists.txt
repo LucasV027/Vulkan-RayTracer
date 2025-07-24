@@ -14,6 +14,8 @@ add_executable(${PROJECT_NAME}
         src/Utils.cpp
         src/Window.cpp
         src/Window.h
+        src/Renderer.cpp
+        src/Renderer.h
 )
 
 include(Dependencies.cmake)
