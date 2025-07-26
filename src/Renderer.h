@@ -3,10 +3,9 @@
 #include "Vulkan.h"
 #include "Window.h"
 
-const std::vector vertices = {
-    0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, 0.5f, 0.0f, 0.0f, 1.0f
+const std::vector QUAD = {
+    -1.f, -1.f, 1.f, -1.f, 1.f, 1.f,
+    -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
 };
 
 struct FrameContext {
@@ -41,7 +40,7 @@ private:
     void InitImGUI();
 
     void Cleanup();
-    void CleanupImGui();
+    void CleanupImGui() const;
 
     enum class AcquireError {
         Suboptimal,

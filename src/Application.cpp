@@ -21,7 +21,8 @@ void Application::Run() const {
         glfwPollEvents();
         renderer->Begin();
         ImGui::Begin("[INFO]");
-        ImGui::Text("Window size: %d", width, height);
+        ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+        ImGui::Text("Window size: (%d, %d)", width, height);
         ImGui::End();
         renderer->Draw();
     }

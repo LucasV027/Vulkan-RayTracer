@@ -1,6 +1,7 @@
 #include "Utils.h"
 
 #include <fstream>
+#include <cstring> // memcpy
 
 namespace Utils {
     std::expected<std::vector<std::byte>, FileError> ReadBinaryFile(const std::filesystem::path& path) {

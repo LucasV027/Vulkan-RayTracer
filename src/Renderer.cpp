@@ -120,7 +120,7 @@ void Renderer::Render(const FrameContext& fc) const {
     fc.commandBuffer.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
     fc.commandBuffer.bindVertexBuffers(0, ctx.vertexBuffer, {0});
-    fc.commandBuffer.draw(vertices.size(), 1, 0, 0);
+    fc.commandBuffer.draw(QUAD.size(), 1, 0, 0);
 
     fc.commandBuffer.endRendering();
 }
@@ -291,7 +291,7 @@ void Renderer::Cleanup() {
     if (ctx.debugCallback) ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
 }
 
-void Renderer::CleanupImGui() {
+void Renderer::CleanupImGui() const {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -647,12 +647,12 @@ void Renderer::CreateGraphicsPipeline() {
 
     vk::VertexInputBindingDescription bindingDescription{
         .binding = 0,
-        .stride = 5 * sizeof(float),
+        .stride = 2 * sizeof(float),
         .inputRate = vk::VertexInputRate::eVertex
     };
 
     // Define the vertex input attribute descriptions
-    std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions = {
+    std::array<vk::VertexInputAttributeDescription, 1> attributeDescriptions = {
         {
             {
                 .location = 0,
@@ -660,13 +660,6 @@ void Renderer::CreateGraphicsPipeline() {
                 .format = vk::Format::eR32G32Sfloat,
                 .offset = 0
             },
-            // position
-            {
-                .location = 1,
-                .binding = 0,
-                .format = vk::Format::eR32G32B32Sfloat,
-                .offset = 2 * sizeof(float),
-            } // color
         }
     };
 
@@ -789,7 +782,7 @@ void Renderer::CreateGraphicsPipeline() {
 }
 
 void Renderer::CreateVertexBuffer() {
-    const vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    const vk::DeviceSize bufferSize = sizeof(QUAD[0]) * QUAD.size();
 
     const vk::BufferCreateInfo vertexBufferCreateInfo{
         .size = bufferSize,
@@ -837,7 +830,7 @@ void Renderer::CreateVertexBuffer() {
     ctx.device.bindBufferMemory(ctx.vertexBuffer, ctx.vertexBufferMemory, 0);
 
     void* data = ctx.device.mapMemory(ctx.vertexBufferMemory, 0, bufferSize);
-    memcpy(data, vertices.data(), bufferSize);
+    memcpy(data, QUAD.data(), bufferSize);
     ctx.device.unmapMemory(ctx.vertexBufferMemory);
 }
 
