@@ -1,7 +1,6 @@
 #include "Application.h"
 
 #include <imgui.h>
-#include <set>
 
 #include "Utils.h"
 #include "Log.h"
@@ -18,7 +17,7 @@ Application::Application() {
 
 void Application::Run() const {
     while (!window->ShouldClose()) {
-        glfwPollEvents();
+        window->PollEvents();
         renderer->Begin();
         ImGui::Begin("[INFO]");
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);

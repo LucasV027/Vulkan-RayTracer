@@ -51,7 +51,7 @@ const char* Window::GetTitle() const {
 
 GLFWwindow* Window::Handle() const { return handle; }
 
-VkSurfaceKHR Window::CreateSurface(VkInstance instance) const {
+VkSurfaceKHR Window::CreateSurface(const VkInstance instance) const {
     VkSurfaceKHR rawSurface;
     if (glfwCreateWindowSurface(instance, handle, nullptr, &rawSurface) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create window surface.");

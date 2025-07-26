@@ -1,9 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
-#include "Renderer.h"
-#include "Vulkan.h"
+#include "Renderer/Renderer.h"
 #include "Window.h"
 
 class Application {

@@ -7,15 +7,15 @@ add_executable(${PROJECT_NAME}
         src/main.cpp
         src/Application.cpp
         src/Application.h
-        src/Vulkan.cpp
-        src/Vulkan.h
+        src/Renderer/Vulkan.cpp
+        src/Renderer/Vulkan.h
         src/Log.h
         src/Utils.h
         src/Utils.cpp
         src/Window.cpp
         src/Window.h
-        src/Renderer.cpp
-        src/Renderer.h
+        src/Renderer/Renderer.cpp
+        src/Renderer/Renderer.h
 )
 
 include(Dependencies.cmake)
@@ -26,6 +26,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${glfw_SOURCE_DIR}/include
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends
+        src
 )
 
 # Sources ImGui (core + backends)

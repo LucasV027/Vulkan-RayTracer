@@ -1,9 +1,13 @@
 #pragma once
 
+#include <cstdint>
+#include <memory>
+#include <utility>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include "Vulkan.h"
+#include "Renderer/Vulkan.h"
 
 class Window {
 public:
