@@ -797,35 +797,11 @@ void Renderer::CreateVertexBuffer() {
 
     const vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.vertexBuffer);
 
-    auto FindMemoryType = [](const vk::PhysicalDevice physicalDevice,
-                             const uint32_t typeFilter,
-                             const vk::MemoryPropertyFlags properties) {
-        // Structure to hold the physical device's memory properties
-        const auto memProperties = physicalDevice.getMemoryProperties();
-
-        // Iterate over all memory types available on the physical device
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            // Check if the current memory type is acceptable based on the type_filter
-            // The type_filter is a bitmask where each bit represents a memory type that is suitable
-            if (typeFilter & (1 << i)) {
-                // Check if the memory type has all the desired property flags
-                // properties is a bitmask of the required memory properties
-                if ((memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                    // Found a suitable memory type; return its index
-                    return i;
-                }
-            }
-        }
-
-        // If no suitable memory type was found, throw an exception
-        throw std::runtime_error("Failed to find suitable memory type.");
-    };
-
     const vk::MemoryAllocateInfo allocInfo{
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex =
-        FindMemoryType(ctx.gpu, memoryRequirements.memoryTypeBits,
-                       vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        vkHelpers::FindMemoryType(ctx.gpu, memoryRequirements.memoryTypeBits,
+                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
     };
 
     ctx.vertexBufferMemory = ctx.device.allocateMemory(allocInfo);
