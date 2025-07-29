@@ -15,7 +15,7 @@ private:
     void CreatePipelineLayout();
     void CreatePipeline();
     void AllocateDescriptorSet(vk::DescriptorPool descriptorPool);
-    void CreateUniformBuffer();
+    void CreateUniforms();
     void UpdateDescriptorSet() const;
 
 private:
@@ -26,6 +26,8 @@ private:
     vk::DescriptorSet descriptorSet;
 
     vkHelpers::AllocatedBuffer uniformBuffer;
+    vkHelpers::AllocatedImage accumulationImage;
+    vkHelpers::AllocatedImage resultImage;
 
     vk::PipelineLayout pipelineLayout;
     vk::Pipeline pipeline;

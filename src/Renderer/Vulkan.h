@@ -38,6 +38,8 @@ namespace vkHelpers {
             memcpy(data, &uploadData, sizeof(T));
             device.unmapMemory(memory);
         }
+
+        void Destroy(vk::Device device);
     };
 
     AllocatedBuffer CreateBuffer(vk::Device device,
@@ -50,6 +52,8 @@ namespace vkHelpers {
         vk::Image image = nullptr;
         vk::DeviceMemory memory = nullptr;
         vk::ImageView view = nullptr;
+
+        void Destroy(vk::Device device);
     };
 
     AllocatedImage CreateStorageImage(vk::Device device,

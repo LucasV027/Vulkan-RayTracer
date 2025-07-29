@@ -55,14 +55,14 @@ vk::UniqueShaderModule vkHelpers::CreateShaderModule(const vk::Device device, co
     return device.createShaderModuleUnique(createModuleInfo);
 }
 
-void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
-                                      vk::Image image,
-                                      vk::ImageLayout oldLayout,
-                                      vk::ImageLayout newLayout,
-                                      vk::AccessFlags2 srcAccessMask,
-                                      vk::AccessFlags2 dstAccessMask,
-                                      vk::PipelineStageFlags2 srcStage,
-                                      vk::PipelineStageFlags2 dstStage) {
+void vkHelpers::TransitionImageLayout(const vk::CommandBuffer cmd,
+                                      const vk::Image image,
+                                      const vk::ImageLayout oldLayout,
+                                      const vk::ImageLayout newLayout,
+                                      const vk::AccessFlags2 srcAccessMask,
+                                      const vk::AccessFlags2 dstAccessMask,
+                                      const vk::PipelineStageFlags2 srcStage,
+                                      const vk::PipelineStageFlags2 dstStage) {
     // Initialize the VkImageMemoryBarrier2 structure
     vk::ImageMemoryBarrier2 imageBarrier{
         // Specify the pipeline stages and access masks for the barrier
@@ -93,7 +93,7 @@ void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
     };
 
     // Initialize the VkDependencyInfo structure
-    vk::DependencyInfo dependencyInfo{
+    const vk::DependencyInfo dependencyInfo{
         .dependencyFlags = {},                // No special dependency flags
         .imageMemoryBarrierCount = 1,         // Number of image memory barriers
         .pImageMemoryBarriers = &imageBarrier // Pointer to the image memory barrier(s)
@@ -113,6 +113,13 @@ uint32_t vkHelpers::FindMemoryType(const vk::PhysicalDevice physicalDevice,
             return i;
     }
     throw std::runtime_error("Failed to find suitable memory type.");
+}
+
+void vkHelpers::AllocatedBuffer::Destroy(const vk::Device device) {
+    if (buffer) device.destroyBuffer(buffer);
+    if (memory) device.freeMemory(memory);
+    buffer = nullptr;
+    memory = nullptr;
 }
 
 vkHelpers::AllocatedBuffer vkHelpers::CreateBuffer(const vk::Device device,
@@ -140,11 +147,25 @@ vkHelpers::AllocatedBuffer vkHelpers::CreateBuffer(const vk::Device device,
     return AllocatedBuffer{buffer, memory};
 }
 
+void vkHelpers::AllocatedImage::Destroy(const vk::Device device) {
+    if (image) device.destroyImage(image);
+    if (view) device.destroyImageView(view);
+    if (memory) device.freeMemory(memory);
+    image = nullptr;
+    memory = nullptr;
+    view = nullptr;
+}
+
 vkHelpers::AllocatedImage vkHelpers::CreateStorageImage(const vk::Device device,
                                                         const vk::PhysicalDevice physicalDevice,
                                                         const uint32_t width,
                                                         const uint32_t height,
                                                         const vk::Format format) {
+    constexpr vk::ImageUsageFlags usage =
+        vk::ImageUsageFlagBits::eStorage |
+        vk::ImageUsageFlagBits::eSampled |
+        vk::ImageUsageFlagBits::eTransferSrc;
+
     const vk::ImageCreateInfo imageInfo{
         .imageType = vk::ImageType::e2D,
         .format = format,
@@ -153,7 +174,7 @@ vkHelpers::AllocatedImage vkHelpers::CreateStorageImage(const vk::Device device,
         .arrayLayers = 1,
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = vk::ImageTiling::eOptimal,
-        .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+        .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
@@ -187,6 +208,3 @@ vkHelpers::AllocatedImage vkHelpers::CreateStorageImage(const vk::Device device,
 
     return AllocatedImage{image, memory, view};
 }
-
-
-
