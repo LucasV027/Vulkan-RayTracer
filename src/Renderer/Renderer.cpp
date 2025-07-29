@@ -8,17 +8,21 @@
 
 #include "Log.h"
 
-Renderer::Renderer(const std::shared_ptr<Window>& window) {
-    windowRef = window;
-    Init();
+Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
+                   const std::shared_ptr<Window>& window) : context(context), window(window) {
+    CreateSwapChain();
+    CreateGraphicsPipeline();
+    CreateVertexBuffer();
+
     InitImGUI();
 
-    computePipeline = std::make_unique<ComputePipeline>(ctx.device, ctx.gpu, ctx.imguiDescriptorPool);
+    computePipeline = std::make_unique<ComputePipeline>(context->device, context->physicalDevice,
+                                                        context->mainDescriptorPool);
 }
 
 Renderer::~Renderer() {
     // Don't release anything until the GPU is completely idle.
-    if (ctx.device) ctx.device.waitIdle();
+    if (context->device) context->device.waitIdle();
 
     computePipeline.reset();
 
@@ -47,23 +51,23 @@ void Renderer::Begin() {
 FrameContext* Renderer::BeginFrame() {
     const auto acquireResult = AcquireNextImage();
     if (!acquireResult) {
-        if (acquireResult.error() == AcquireError::Failed) ctx.device.waitIdle();
+        if (acquireResult.error() == AcquireError::Failed) context->device.waitIdle();
         else Resize();
         return nullptr;
     }
 
     const uint32_t index = *acquireResult;
-    auto& frame = ctx.perFrames[index];
+    auto& frame = perFrames[index];
     frame.index = index;
 
-    ctx.device.resetCommandPool(frame.commandPool);
+    context->device.resetCommandPool(frame.commandPool);
 
     frame.commandBuffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
     });
 
     vkHelpers::TransitionImageLayout(frame.commandBuffer,
-                                     ctx.swapChainImages[frame.index],
+                                     swapChainImages[frame.index],
                                      vk::ImageLayout::eUndefined,
                                      vk::ImageLayout::eColorAttachmentOptimal,
                                      {}, // srcAccessMask (no need to wait for previous operations)
@@ -81,7 +85,7 @@ void Renderer::Render(const FrameContext& fc) const {
     };
 
     vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = ctx.swapChainImagesViews[fc.index],
+        .imageView = swapChainImagesViews[fc.index],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -92,8 +96,8 @@ void Renderer::Render(const FrameContext& fc) const {
         .renderArea = {
             .offset = {0, 0},
             .extent = {
-                .width = ctx.swapChainDimensions.width,
-                .height = ctx.swapChainDimensions.height
+                .width = swapChainDimensions.width,
+                .height = swapChainDimensions.height
             }
         },
         .layerCount = 1,
@@ -103,19 +107,19 @@ void Renderer::Render(const FrameContext& fc) const {
 
     fc.commandBuffer.beginRendering(renderingInfo);
 
-    fc.commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, ctx.graphicsPipeline);
+    fc.commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
     const vk::Viewport vp{
-        .width = static_cast<float>(ctx.swapChainDimensions.width),
-        .height = static_cast<float>(ctx.swapChainDimensions.height),
+        .width = static_cast<float>(swapChainDimensions.width),
+        .height = static_cast<float>(swapChainDimensions.height),
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
 
     const vk::Rect2D scissor{
         .extent = {
-            .width = ctx.swapChainDimensions.width,
-            .height = ctx.swapChainDimensions.height
+            .width = swapChainDimensions.width,
+            .height = swapChainDimensions.height
         }
     };
 
@@ -126,7 +130,7 @@ void Renderer::Render(const FrameContext& fc) const {
     fc.commandBuffer.setFrontFace(vk::FrontFace::eClockwise);
     fc.commandBuffer.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
-    fc.commandBuffer.bindVertexBuffers(0, ctx.vertexBuffer, {0});
+    fc.commandBuffer.bindVertexBuffers(0, vertexBuffer, {0});
     fc.commandBuffer.draw(QUAD.size(), 1, 0, 0);
 
     fc.commandBuffer.endRendering();
@@ -140,7 +144,7 @@ void Renderer::SubmitUI(const FrameContext& fc) const {
     };
 
     vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = ctx.swapChainImagesViews[fc.index],
+        .imageView = swapChainImagesViews[fc.index],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -151,8 +155,8 @@ void Renderer::SubmitUI(const FrameContext& fc) const {
         .renderArea = {
             .offset = {0, 0},
             .extent = {
-                .width = ctx.swapChainDimensions.width,
-                .height = ctx.swapChainDimensions.height
+                .width = swapChainDimensions.width,
+                .height = swapChainDimensions.height
             }
         },
         .layerCount = 1,
@@ -169,7 +173,7 @@ void Renderer::SubmitUI(const FrameContext& fc) const {
 
 void Renderer::Submit(const FrameContext& fc) const {
     vkHelpers::TransitionImageLayout(fc.commandBuffer,
-                                     ctx.swapChainImages[fc.index],
+                                     swapChainImages[fc.index],
                                      vk::ImageLayout::eColorAttachmentOptimal,
                                      vk::ImageLayout::ePresentSrcKHR,
                                      vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
@@ -192,7 +196,7 @@ void Renderer::Submit(const FrameContext& fc) const {
         .pSignalSemaphores = &fc.renderFinished
     };
 
-    ctx.graphicsQueue.submit(submitInfo, fc.inFlight);
+    context->graphicsQueue.submit(submitInfo, fc.inFlight);
 }
 
 void Renderer::Present(const FrameContext& fc) {
@@ -200,12 +204,12 @@ void Renderer::Present(const FrameContext& fc) {
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &fc.renderFinished,
         .swapchainCount = 1,
-        .pSwapchains = &ctx.swapChain,
+        .pSwapchains = &swapChain,
         .pImageIndices = &fc.index
     };
 
     try {
-        const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
+        const auto result = context->graphicsQueue.presentKHR(presentInfo);
         if (result == vk::Result::eSuboptimalKHR) {
             Resize();
         }
@@ -214,63 +218,30 @@ void Renderer::Present(const FrameContext& fc) {
     }
 }
 
-void Renderer::Init() {
-    CreateInstance();
-    CreateSurface();
-    PickPhysicalDevice();
-    CreateLogicalDevice();
-    CreateSwapChain();
-    CreateGraphicsPipeline();
-    CreateVertexBuffer();
-}
-
 void Renderer::InitImGUI() {
-    std::array poolSizes = {
-        vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eCombinedImageSampler, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eSampledImage, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eUniformTexelBuffer, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eStorageTexelBuffer, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBuffer, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBuffer, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBufferDynamic, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBufferDynamic, 1000},
-        vk::DescriptorPoolSize{vk::DescriptorType::eInputAttachment, 1000}
-    };
-
-    const vk::DescriptorPoolCreateInfo poolInfo{
-        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = 1000,
-        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-        .pPoolSizes = poolSizes.data(),
-    };
-
-    ctx.imguiDescriptorPool = ctx.device.createDescriptorPool(poolInfo);
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
     ImGui::StyleColorsDark();
 
     // Init GLFW
-    ImGui_ImplGlfw_InitForVulkan(windowRef->Handle(), true);
+    ImGui_ImplGlfw_InitForVulkan(window->Handle(), true);
 
     // Init Vulkan backend
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &ctx.swapChainDimensions.format,
+        .pColorAttachmentFormats = &swapChainDimensions.format,
     };
 
     ImGui_ImplVulkan_InitInfo initInfo{
-        .Instance = ctx.instance,
-        .PhysicalDevice = ctx.gpu,
-        .Device = ctx.device,
-        .QueueFamily = ctx.graphicsQueueIndex,
-        .Queue = ctx.graphicsQueue,
-        .DescriptorPool = ctx.imguiDescriptorPool,
+        .Instance = context->instance,
+        .PhysicalDevice = context->physicalDevice,
+        .Device = context->device,
+        .QueueFamily = context->graphicsQueueIndex,
+        .Queue = context->graphicsQueue,
+        .DescriptorPool = context->mainDescriptorPool,
         .MinImageCount = 2,
-        .ImageCount = static_cast<uint32_t>(ctx.swapChainImages.size()),
+        .ImageCount = static_cast<uint32_t>(swapChainImages.size()),
         .UseDynamicRendering = true,
         .PipelineRenderingCreateInfo = pipelineRenderingInfo,
     };
@@ -279,41 +250,34 @@ void Renderer::InitImGUI() {
 }
 
 void Renderer::Cleanup() {
-    for (auto& perFrame : ctx.perFrames) perFrame.Destroy(ctx.device);
-    ctx.perFrames.clear();
+    for (auto& perFrame : perFrames) perFrame.Destroy(context->device);
+    perFrames.clear();
 
-    if (ctx.graphicsPipeline) ctx.device.destroyPipeline(ctx.graphicsPipeline);
-    if (ctx.graphicsPipelineLayout) ctx.device.destroyPipelineLayout(ctx.graphicsPipelineLayout);
+    if (graphicsPipeline) context->device.destroyPipeline(graphicsPipeline);
+    if (graphicsPipelineLayout) context->device.destroyPipelineLayout(graphicsPipelineLayout);
 
-    for (const vk::ImageView imageView : ctx.swapChainImagesViews) ctx.device.destroyImageView(imageView);
+    for (const vk::ImageView imageView : swapChainImagesViews) context->device.destroyImageView(imageView);
 
-    if (ctx.swapChain) ctx.device.destroySwapchainKHR(ctx.swapChain);
-    if (ctx.surface) ctx.instance.destroySurfaceKHR(ctx.surface);
+    if (swapChain) context->device.destroySwapchainKHR(swapChain);
 
-    if (ctx.vertexBuffer) ctx.device.destroyBuffer(ctx.vertexBuffer);
-    if (ctx.vertexBufferMemory) ctx.device.freeMemory(ctx.vertexBufferMemory);
-
-    if (ctx.device) ctx.device.destroy();
-
-    if (ctx.debugCallback) ctx.instance.destroyDebugUtilsMessengerEXT(ctx.debugCallback);
+    if (vertexBuffer) context->device.destroyBuffer(vertexBuffer);
+    if (vertexBufferMemory) context->device.freeMemory(vertexBufferMemory);
 }
 
 void Renderer::CleanupImGui() const {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
-    if (ctx.imguiDescriptorPool) ctx.device.destroyDescriptorPool(ctx.imguiDescriptorPool);
 }
 
 std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
-    auto acquireSemaphore = ctx.device.createSemaphoreUnique({});
+    auto acquireSemaphore = context->device.createSemaphoreUnique({});
 
     uint32_t imageIndex;
     vk::Result result;
     try {
-        std::tie(result, imageIndex) = ctx.device.acquireNextImageKHR(
-            ctx.swapChain, UINT64_MAX, acquireSemaphore.get());
+        std::tie(result, imageIndex) = context->device.acquireNextImageKHR(
+            swapChain, UINT64_MAX, acquireSemaphore.get());
     } catch (vk::OutOfDateKHRError&) {
         return std::unexpected(AcquireError::OutOfDate);
     }
@@ -321,14 +285,13 @@ std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
     if (result == vk::Result::eSuboptimalKHR) return std::unexpected(AcquireError::Suboptimal);
     if (result != vk::Result::eSuccess) return std::unexpected(AcquireError::Failed);
 
-    if (ctx.perFrames[imageIndex].inFlight) {
-        const auto waitResult = ctx.device.waitForFences(
-            ctx.perFrames[imageIndex].inFlight, true, UINT64_MAX);
+    if (perFrames[imageIndex].inFlight) {
+        const auto waitResult = context->device.waitForFences(perFrames[imageIndex].inFlight, true, UINT64_MAX);
         assert(waitResult == vk::Result::eSuccess);
-        ctx.device.resetFences(ctx.perFrames[imageIndex].inFlight);
+        context->device.resetFences(perFrames[imageIndex].inFlight);
     }
 
-    ctx.perFrames[imageIndex].imageAvailable = std::move(acquireSemaphore);
+    perFrames[imageIndex].imageAvailable = std::move(acquireSemaphore);
 
     return imageIndex;
 }
@@ -336,14 +299,14 @@ std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
 bool Renderer::PresentImage(uint32_t swapChainIndex) {
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &ctx.perFrames[swapChainIndex].renderFinished,
+        .pWaitSemaphores = &perFrames[swapChainIndex].renderFinished,
         .swapchainCount = 1,
-        .pSwapchains = &ctx.swapChain,
+        .pSwapchains = &swapChain,
         .pImageIndices = &swapChainIndex
     };
 
     try {
-        const auto result = ctx.graphicsQueue.presentKHR(presentInfo);
+        const auto result = context->graphicsQueue.presentKHR(presentInfo);
         if (result == vk::Result::eSuboptimalKHR) {
             return false;
         }
@@ -357,201 +320,27 @@ bool Renderer::PresentImage(uint32_t swapChainIndex) {
 void Renderer::Resize() {
     int width = 0, height = 0;
     while (width == 0 || height == 0) {
-        std::tie(width, height) = windowRef->GetFrameBufferSize();
+        std::tie(width, height) = window->GetFrameBufferSize();
         glfwWaitEvents();
     }
 
-    ctx.device.waitIdle();
+    context->device.waitIdle();
 
-    const auto surfaceProperties = ctx.gpu.getSurfaceCapabilitiesKHR(ctx.surface);
+    const auto surfaceProperties = context->physicalDevice.getSurfaceCapabilitiesKHR(context->surface);
 
     const bool dimensionsChanged =
-        surfaceProperties.currentExtent.width != ctx.swapChainDimensions.width ||
-        surfaceProperties.currentExtent.height != ctx.swapChainDimensions.height;
+        surfaceProperties.currentExtent.width != swapChainDimensions.width ||
+        surfaceProperties.currentExtent.height != swapChainDimensions.height;
 
     if (dimensionsChanged) {
         CreateSwapChain();
     }
 }
 
-void Renderer::CreateInstance() {
-    static vk::detail::DynamicLoader loader;
-    const auto vkGetInstanceProcAddr = loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
-
-    vk::ApplicationInfo appInfo{
-        .pApplicationName = windowRef->GetTitle(),
-        .pEngineName = "",
-        .apiVersion = VK_MAKE_VERSION(1, 3, 0)
-    };
-
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-    std::vector<const char*> requestedInstanceLayers;
-
-#ifndef NDEBUG
-    constexpr auto validationLayer = "VK_LAYER_KHRONOS_validation";
-    const auto supportedLayers = vk::enumerateInstanceLayerProperties();
-    for (const auto& layer : supportedLayers) {
-        if (strcmp(layer.layerName, validationLayer) == 0) {
-            requestedInstanceLayers.push_back(validationLayer);
-            break;
-        }
-    }
-
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    constexpr vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{
-        .messageSeverity =
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-        .messageType =
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
-        .pfnUserCallback = vkHelpers::DebugCallback
-    };
-#endif
-
-    vk::InstanceCreateInfo instanceCreateInfo{
-        .pApplicationInfo = &appInfo,
-        .enabledLayerCount = static_cast<uint32_t>(requestedInstanceLayers.size()),
-        .ppEnabledLayerNames = requestedInstanceLayers.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data(),
-    };
-
-#ifndef NDEBUG
-    instanceCreateInfo.pNext = &debugCreateInfo;
-#endif
-
-    ctx.instance = vk::createInstance(instanceCreateInfo);
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(ctx.instance);
-
-#ifndef NDEBUG
-    ctx.debugCallback = ctx.instance.createDebugUtilsMessengerEXT(debugCreateInfo);
-#endif
-}
-
-void Renderer::CreateSurface() {
-    ctx.surface = windowRef->CreateSurface(ctx.instance);
-}
-
-void Renderer::PickPhysicalDevice() {
-    std::vector<vk::PhysicalDevice> gpus = ctx.instance.enumeratePhysicalDevices();
-    if (gpus.empty()) throw std::runtime_error("No Vulkan-compatible GPU found.");
-
-
-    for (const auto& gpu : gpus) {
-        vk::PhysicalDeviceProperties properties = gpu.getProperties();
-        if (properties.apiVersion < vk::ApiVersion13) {
-            LOGW("Physical device '{}' does not support Vulkan 1.3, skipping.", properties.deviceName.data());
-            continue;
-        }
-
-        auto queueFamilies = gpu.getQueueFamilyProperties();
-
-        bool foundGraphics = false;
-        bool foundCompute = false;
-
-        for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-            const auto& queueFamily = queueFamilies[i];
-            const bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
-            const bool supportsCompute = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eCompute);
-
-            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, ctx.surface) && !foundGraphics) {
-                ctx.graphicsQueueIndex = i;
-                foundGraphics = true;
-            }
-
-            // Prefer a compute-only queue
-            if (supportsCompute && !(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) && !foundCompute) {
-                ctx.computeQueueIndex = i;
-                foundCompute = true;
-            }
-        }
-
-        if (!foundCompute && foundGraphics) {
-            ctx.computeQueueIndex = ctx.graphicsQueueIndex;
-            foundCompute = true;
-            LOGI("No dedicated compute queue found, fallback to graphics queue");
-        }
-
-        if (foundGraphics && foundCompute) {
-            ctx.gpu = gpu;
-            LOGI("Selected GPU: '{}'", properties.deviceName.data());
-            return;
-        }
-    }
-
-    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics + compute support).");
-}
-
-void Renderer::CreateLogicalDevice() {
-    // Check extensions support
-    auto supportedExtensions = ctx.gpu.enumerateDeviceExtensionProperties();
-    std::vector<const char*> requiredExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
-    for (const char* ext : requiredExtensions) {
-        bool found = std::ranges::any_of(supportedExtensions, [&](const auto& e) {
-            return strcmp(e.extensionName, ext) == 0;
-        });
-        if (!found) {
-            throw std::runtime_error(std::string("Missing required extension: ") + ext);
-        }
-    }
-
-    // Check supported features
-    auto features = ctx.gpu.getFeatures2<
-        vk::PhysicalDeviceFeatures2,
-        vk::PhysicalDeviceVulkan13Features,
-        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
-
-    if (!features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering ||
-        !features.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 ||
-        !features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState) {
-        throw std::runtime_error("Required Vulkan features not supported.");
-    }
-
-    vk::StructureChain<vk::PhysicalDeviceFeatures2,
-                       vk::PhysicalDeviceVulkan13Features,
-                       vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> enabledFeatures = {
-        {}, {.synchronization2 = true, .dynamicRendering = true}, {.extendedDynamicState = true}
-    };
-
-    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {
-        ctx.graphicsQueueIndex, ctx.computeQueueIndex
-    };
-
-    float queuePriority = 1.0f;
-    for (uint32_t queueFamily : uniqueQueueFamilies) {
-        queueCreateInfos.push_back(vk::DeviceQueueCreateInfo{
-            .queueFamilyIndex = queueFamily,
-            .queueCount = 1,
-            .pQueuePriorities = &queuePriority
-        });
-    }
-
-    vk::DeviceCreateInfo deviceCreateInfo{
-        .pNext = &enabledFeatures.get<vk::PhysicalDeviceFeatures2>(),
-        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-        .pQueueCreateInfos = queueCreateInfos.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
-        .ppEnabledExtensionNames = requiredExtensions.data()
-    };
-
-
-    ctx.device = ctx.gpu.createDevice(deviceCreateInfo);
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(ctx.device);
-    ctx.graphicsQueue = ctx.device.getQueue(ctx.graphicsQueueIndex, 0);
-    ctx.computeQueue = ctx.device.getQueue(ctx.computeQueueIndex, 0);
-}
-
 void Renderer::CreateSwapChain() {
-    vk::SurfaceCapabilitiesKHR capabilities = ctx.gpu.getSurfaceCapabilitiesKHR(ctx.surface);
-    auto formats = ctx.gpu.getSurfaceFormatsKHR(ctx.surface);
-    auto presentModes = ctx.gpu.getSurfacePresentModesKHR(ctx.surface);
+    vk::SurfaceCapabilitiesKHR capabilities = context->physicalDevice.getSurfaceCapabilitiesKHR(context->surface);
+    auto formats = context->physicalDevice.getSurfaceFormatsKHR(context->surface);
+    auto presentModes = context->physicalDevice.getSurfacePresentModesKHR(context->surface);
 
     vk::SurfaceFormatKHR surfaceFormat = formats[0];
     for (const auto& availableFormat : formats) {
@@ -562,7 +351,7 @@ void Renderer::CreateSwapChain() {
         }
     }
 
-    ctx.swapChainDimensions.format = surfaceFormat.format;
+    swapChainDimensions.format = surfaceFormat.format;
 
     auto presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& availablePresentMode : presentModes) {
@@ -572,16 +361,16 @@ void Renderer::CreateSwapChain() {
         }
     }
 
-    auto [width, height] = windowRef->GetSize();
-    ctx.swapChainDimensions.width = width;
-    ctx.swapChainDimensions.height = height;
+    auto [width, height] = window->GetSize();
+    swapChainDimensions.width = width;
+    swapChainDimensions.height = height;
 
     vk::Extent2D extent;
     if (capabilities.currentExtent.width == UINT32_MAX) {
-        extent.width = std::clamp(ctx.swapChainDimensions.width,
+        extent.width = std::clamp(swapChainDimensions.width,
                                   capabilities.minImageExtent.width,
                                   capabilities.maxImageExtent.width);
-        extent.height = std::clamp(ctx.swapChainDimensions.height,
+        extent.height = std::clamp(swapChainDimensions.height,
                                    capabilities.minImageExtent.height,
                                    capabilities.maxImageExtent.height);
     } else {
@@ -594,10 +383,10 @@ void Renderer::CreateSwapChain() {
         imageCount = std::min(imageCount, capabilities.maxImageCount);
     imageCount = std::max(imageCount, capabilities.minImageCount);
 
-    auto oldSwapChain = ctx.swapChain;
+    const auto oldSwapChain = swapChain;
 
-    vk::SwapchainCreateInfoKHR createInfo{
-        .surface = ctx.surface,
+    const vk::SwapchainCreateInfoKHR createInfo{
+        .surface = context->surface,
         .minImageCount = imageCount,
         .imageFormat = surfaceFormat.format,
         .imageColorSpace = surfaceFormat.colorSpace,
@@ -612,23 +401,23 @@ void Renderer::CreateSwapChain() {
         .oldSwapchain = oldSwapChain
     };
 
-    ctx.swapChain = ctx.device.createSwapchainKHR(createInfo);
-    ctx.swapChainImages = ctx.device.getSwapchainImagesKHR(ctx.swapChain);
+    swapChain = context->device.createSwapchainKHR(createInfo);
+    swapChainImages = context->device.getSwapchainImagesKHR(swapChain);
 
     if (oldSwapChain) {
-        for (vk::ImageView imageView : ctx.swapChainImagesViews) ctx.device.destroyImageView(imageView);
-        ctx.swapChainImagesViews.clear();
+        for (vk::ImageView imageView : swapChainImagesViews) context->device.destroyImageView(imageView);
+        swapChainImagesViews.clear();
 
-        for (auto& perFrame : ctx.perFrames) perFrame.Destroy(ctx.device);
+        for (auto& perFrame : perFrames) perFrame.Destroy(context->device);
 
-        ctx.device.destroySwapchainKHR(oldSwapChain);
+        context->device.destroySwapchainKHR(oldSwapChain);
     }
 
-    for (auto const& swapChainImage : ctx.swapChainImages) {
+    for (auto const& swapChainImage : swapChainImages) {
         vk::ImageViewCreateInfo viewCreateInfo{
             .image = swapChainImage,
             .viewType = vk::ImageViewType::e2D,
-            .format = ctx.swapChainDimensions.format,
+            .format = swapChainDimensions.format,
             .subresourceRange = {
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .baseMipLevel = 0,
@@ -638,19 +427,19 @@ void Renderer::CreateSwapChain() {
             }
         };
 
-        ctx.swapChainImagesViews.push_back(ctx.device.createImageView(viewCreateInfo));
+        swapChainImagesViews.push_back(context->device.createImageView(viewCreateInfo));
     }
 
-    ctx.perFrames.clear();
-    ctx.perFrames.resize(ctx.swapChainImages.size());
+    perFrames.clear();
+    perFrames.resize(swapChainImages.size());
 
-    for (auto& perFrame : ctx.perFrames) {
-        perFrame.Init(ctx.device, ctx.graphicsQueueIndex);
+    for (auto& perFrame : perFrames) {
+        perFrame.Init(context->device, context->graphicsQueueIndex);
     }
 }
 
 void Renderer::CreateGraphicsPipeline() {
-    ctx.graphicsPipelineLayout = ctx.device.createPipelineLayout({});
+    graphicsPipelineLayout = context->device.createPipelineLayout({});
 
     vk::VertexInputBindingDescription bindingDescription{
         .binding = 0,
@@ -736,8 +525,8 @@ void Renderer::CreateGraphicsPipeline() {
     };
 
 
-    auto vertShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.vert.spv");
-    auto fragShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.frag.spv");
+    auto vertShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.vert.spv");
+    auto fragShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.frag.spv");
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         {
@@ -757,7 +546,7 @@ void Renderer::CreateGraphicsPipeline() {
     // Pipeline rendering info (for dynamic rendering).
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &ctx.swapChainDimensions.format
+        .pColorAttachmentFormats = &swapChainDimensions.format
     };
 
     // Create the graphics pipeline.
@@ -773,14 +562,14 @@ void Renderer::CreateGraphicsPipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = ctx.graphicsPipelineLayout,
+        .layout = graphicsPipelineLayout,
         // We need to specify the pipeline layout description up front as well.
         .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
     vk::Result result;
-    std::tie(result, ctx.graphicsPipeline) = ctx.device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+    std::tie(result, graphicsPipeline) = context->device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 }
 
@@ -793,24 +582,24 @@ void Renderer::CreateVertexBuffer() {
         .sharingMode = vk::SharingMode::eExclusive
     };
 
-    ctx.vertexBuffer = ctx.device.createBuffer(vertexBufferCreateInfo);
+    vertexBuffer = context->device.createBuffer(vertexBufferCreateInfo);
 
-    const vk::MemoryRequirements memoryRequirements = ctx.device.getBufferMemoryRequirements(ctx.vertexBuffer);
+    const vk::MemoryRequirements memoryRequirements = context->device.getBufferMemoryRequirements(vertexBuffer);
 
     const vk::MemoryAllocateInfo allocInfo{
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex =
-        vkHelpers::FindMemoryType(ctx.gpu, memoryRequirements.memoryTypeBits,
+        vkHelpers::FindMemoryType(context->physicalDevice, memoryRequirements.memoryTypeBits,
                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
     };
 
-    ctx.vertexBufferMemory = ctx.device.allocateMemory(allocInfo);
+    vertexBufferMemory = context->device.allocateMemory(allocInfo);
 
-    ctx.device.bindBufferMemory(ctx.vertexBuffer, ctx.vertexBufferMemory, 0);
+    context->device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
 
-    void* data = ctx.device.mapMemory(ctx.vertexBufferMemory, 0, bufferSize);
+    void* data = context->device.mapMemory(vertexBufferMemory, 0, bufferSize);
     memcpy(data, QUAD.data(), bufferSize);
-    ctx.device.unmapMemory(ctx.vertexBufferMemory);
+    context->device.unmapMemory(vertexBufferMemory);
 }
 
 void FrameContext::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {

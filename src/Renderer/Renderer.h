@@ -2,7 +2,7 @@
 
 #include "ComputePipeline.h"
 #include "Vulkan.h"
-#include "Window.h"
+#include "VulkanContext.h"
 
 const std::vector QUAD = {
     -1.f, -1.f, 1.f, -1.f, 1.f, 1.f,
@@ -23,7 +23,7 @@ struct FrameContext {
 
 class Renderer {
 public:
-    explicit Renderer(const std::shared_ptr<Window>& window);
+    explicit Renderer(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Window>& window);
     ~Renderer();
 
     void Begin();
@@ -54,48 +54,29 @@ private:
 
     void Resize();
 
-    void CreateInstance();
-    void CreateSurface();
-    void PickPhysicalDevice();
-    void CreateLogicalDevice();
     void CreateSwapChain();
     void CreateGraphicsPipeline();
     void CreateVertexBuffer();
 
 private:
-    std::shared_ptr<Window> windowRef;
+    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<Window> window;
     std::unique_ptr<ComputePipeline> computePipeline;
 
+    vk::PipelineLayout graphicsPipelineLayout = nullptr;
+    vk::Pipeline graphicsPipeline = nullptr;
+
+    vk::Buffer vertexBuffer = nullptr;
+    vk::DeviceMemory vertexBufferMemory = nullptr;
+
+    vk::SwapchainKHR swapChain = nullptr;
+    std::vector<vk::Image> swapChainImages;
+    std::vector<vk::ImageView> swapChainImagesViews;
+    std::vector<FrameContext> perFrames;
+
     struct {
-        vk::Instance instance = nullptr;
-        vk::DebugUtilsMessengerEXT debugCallback = nullptr;
-        vk::SurfaceKHR surface = nullptr;
-        vk::PhysicalDevice gpu = nullptr;
-        vk::Device device = nullptr;
-
-        vk::PipelineLayout graphicsPipelineLayout = nullptr;
-        vk::Pipeline graphicsPipeline = nullptr;
-
-        vk::Buffer vertexBuffer = nullptr;
-        vk::DeviceMemory vertexBufferMemory = nullptr;
-
-        vk::SwapchainKHR swapChain = nullptr;
-        std::vector<vk::Image> swapChainImages;
-        std::vector<vk::ImageView> swapChainImagesViews;
-        std::vector<FrameContext> perFrames;
-
-        struct {
-            uint32_t width = 0;
-            uint32_t height = 0;
-            vk::Format format = vk::Format::eUndefined;
-        } swapChainDimensions;
-
-        uint32_t graphicsQueueIndex = -1;
-        vk::Queue graphicsQueue = nullptr;
-
-        uint32_t computeQueueIndex = -1;
-        vk::Queue computeQueue = nullptr;
-
-        vk::DescriptorPool imguiDescriptorPool = nullptr;
-    } ctx;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        vk::Format format = vk::Format::eUndefined;
+    } swapChainDimensions;
 };

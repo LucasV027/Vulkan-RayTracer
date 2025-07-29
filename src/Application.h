@@ -5,12 +5,13 @@
 
 #include "Renderer/Renderer.h"
 #include "Window.h"
+#include "Renderer/VulkanContext.h"
 
 class Application {
 public:
     Application();
     void Run() const;
-    ~Application() = default;
+    ~Application();
 
 private:
     std::string appName = "Vulkan-RayTracer";
@@ -18,5 +19,6 @@ private:
     uint32_t height = 600;
 
     std::shared_ptr<Window> window;
+    std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Renderer> renderer;
 };
