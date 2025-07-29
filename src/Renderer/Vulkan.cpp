@@ -41,7 +41,7 @@ vk::Bool32 vkHelpers::DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT mes
 }
 #endif
 
-vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const std::filesystem::path& filepath) {
+vk::UniqueShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const std::filesystem::path& filepath) {
     auto code = Utils::ReadSpirvFile(filepath);
     if (!code) {
         throw std::runtime_error(std::format("{}", code.error()));
@@ -52,7 +52,7 @@ vk::ShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const st
         .pCode = code.value().data()
     };
 
-    return device.createShaderModule(createModuleInfo);
+    return device.createShaderModuleUnique(createModuleInfo);
 }
 
 void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
@@ -101,6 +101,91 @@ void vkHelpers::TransitionImageLayout(vk::CommandBuffer cmd,
 
     // Record the pipeline barrier into the command buffer
     cmd.pipelineBarrier2(dependencyInfo);
+}
+
+uint32_t vkHelpers::FindMemoryType(const vk::PhysicalDevice physicalDevice,
+                                   const uint32_t typeFilter,
+                                   const vk::MemoryPropertyFlags properties) {
+    const auto memProperties = physicalDevice.getMemoryProperties();
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+    }
+    throw std::runtime_error("Failed to find suitable memory type.");
+}
+
+vkHelpers::AllocatedBuffer vkHelpers::CreateBuffer(const vk::Device device,
+                                                   const vk::PhysicalDevice physicalDevice,
+                                                   const vk::DeviceSize size,
+                                                   const vk::BufferUsageFlags usage,
+                                                   const vk::MemoryPropertyFlags properties) {
+    const vk::BufferCreateInfo bufferInfo{
+        .size = size,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
+    const vk::Buffer buffer = device.createBuffer(bufferInfo);
+
+    const vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
+
+    const vk::MemoryAllocateInfo allocInfo{
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties),
+    };
+
+    const vk::DeviceMemory memory = device.allocateMemory(allocInfo);
+    device.bindBufferMemory(buffer, memory, 0);
+
+    return AllocatedBuffer{buffer, memory};
+}
+
+vkHelpers::AllocatedImage vkHelpers::CreateStorageImage(const vk::Device device,
+                                                        const vk::PhysicalDevice physicalDevice,
+                                                        const uint32_t width,
+                                                        const uint32_t height,
+                                                        const vk::Format format) {
+    const vk::ImageCreateInfo imageInfo{
+        .imageType = vk::ImageType::e2D,
+        .format = format,
+        .extent = vk::Extent3D{width, height, 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCountFlagBits::e1,
+        .tiling = vk::ImageTiling::eOptimal,
+        .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+        .sharingMode = vk::SharingMode::eExclusive,
+        .initialLayout = vk::ImageLayout::eUndefined,
+    };
+
+    const vk::Image image = device.createImage(imageInfo);
+    const vk::MemoryRequirements memRequirements = device.getImageMemoryRequirements(image);
+
+    const vk::MemoryAllocateInfo allocInfo{
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits,
+                                          vk::MemoryPropertyFlagBits::eDeviceLocal),
+    };
+
+    const vk::DeviceMemory memory = device.allocateMemory(allocInfo);
+    device.bindImageMemory(image, memory, 0);
+
+    const vk::ImageViewCreateInfo viewInfo{
+        .image = image,
+        .viewType = vk::ImageViewType::e2D,
+        .format = format,
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        }
+    };
+
+    const vk::ImageView view = device.createImageView(viewInfo);
+
+    return AllocatedImage{image, memory, view};
 }
 
 

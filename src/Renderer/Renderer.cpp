@@ -12,11 +12,15 @@ Renderer::Renderer(const std::shared_ptr<Window>& window) {
     windowRef = window;
     Init();
     InitImGUI();
+
+    computePipeline = std::make_unique<ComputePipeline>(ctx.device, ctx.gpu, ctx.imguiDescriptorPool);
 }
 
 Renderer::~Renderer() {
     // Don't release anything until the GPU is completely idle.
     if (ctx.device) ctx.device.waitIdle();
+
+    computePipeline.reset();
 
     CleanupImGui();
     Cleanup();
@@ -24,6 +28,9 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() {
     if (const auto fc = BeginFrame()) {
+        computePipeline->UpdateUniform(14); // Test
+        computePipeline->Dispatch(fc->commandBuffer, 16, 1, 1);
+
         Render(*fc);
         SubmitUI(*fc);
         Submit(*fc);
@@ -729,19 +736,19 @@ void Renderer::CreateGraphicsPipeline() {
     };
 
 
-    vk::ShaderModule vertShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.vert.spv");
-    vk::ShaderModule fragShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.frag.spv");
+    auto vertShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.vert.spv");
+    auto fragShaderModule = vkHelpers::CreateShaderModule(ctx.device, "../shaders/main.frag.spv");
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         {
             {
                 .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = vertShaderModule,
+                .module = vertShaderModule.get(),
                 .pName = "main"
             },
             {
                 .stage = vk::ShaderStageFlagBits::eFragment,
-                .module = fragShaderModule,
+                .module = fragShaderModule.get(),
                 .pName = "main"
             }
         }
@@ -775,10 +782,6 @@ void Renderer::CreateGraphicsPipeline() {
     vk::Result result;
     std::tie(result, ctx.graphicsPipeline) = ctx.device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
-
-    for (auto& shaderStage : shaderStages) {
-        ctx.device.destroyShaderModule(shaderStage.module);
-    }
 }
 
 void Renderer::CreateVertexBuffer() {

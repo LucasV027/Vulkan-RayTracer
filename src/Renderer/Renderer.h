@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ComputePipeline.h"
 #include "Vulkan.h"
 #include "Window.h"
 
@@ -63,6 +64,7 @@ private:
 
 private:
     std::shared_ptr<Window> windowRef;
+    std::unique_ptr<ComputePipeline> computePipeline;
 
     struct {
         vk::Instance instance = nullptr;

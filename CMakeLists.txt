@@ -16,6 +16,8 @@ add_executable(${PROJECT_NAME}
         src/Window.h
         src/Renderer/Renderer.cpp
         src/Renderer/Renderer.h
+        src/Renderer/ComputePipeline.cpp
+        src/Renderer/ComputePipeline.h
 )
 
 include(Dependencies.cmake)
