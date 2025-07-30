@@ -1,13 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
+#include <string>
 #include <utility>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-#include "Renderer/Vulkan.h"
 
 class Window {
 public:
@@ -20,8 +18,6 @@ public:
     std::pair<uint32_t, uint32_t> GetFrameBufferSize() const;
     const char* GetTitle() const;
     GLFWwindow* Handle() const;
-
-    VkSurfaceKHR CreateSurface(VkInstance instance) const;
 
 private:
     GLFWwindow* handle = nullptr;

@@ -1,5 +1,7 @@
 #include "Window.h"
 
+#include <stdexcept>
+
 Window::Window(const uint32_t width, const uint32_t height, const std::string& title) {
     if (windowCount == 0) {
         if (!glfwInit()) {
@@ -47,14 +49,3 @@ const char* Window::GetTitle() const {
 }
 
 GLFWwindow* Window::Handle() const { return handle; }
-
-VkSurfaceKHR Window::CreateSurface(const VkInstance instance) const {
-    VkSurfaceKHR rawSurface;
-    if (glfwCreateWindowSurface(instance, handle, nullptr, &rawSurface) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create window surface.");
-    }
-
-    return vk::SurfaceKHR(rawSurface);
-}
-
-

@@ -99,7 +99,12 @@ void VulkanContext::CreateInstance() {
 }
 
 void VulkanContext::CreateSurface() {
-    surface = windowRef->CreateSurface(instance);
+    VkSurfaceKHR rawSurface;
+    if (glfwCreateWindowSurface(instance, windowRef->Handle(), nullptr, &rawSurface) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create window surface.");
+    }
+
+    surface = vk::SurfaceKHR(rawSurface);
 }
 
 void VulkanContext::PickPhysicalDevice() {
