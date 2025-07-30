@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ComputePipeline.h"
+#include "GraphicsPipeline.h"
+#include "ImGuiPipeline.h"
 #include "Vulkan.h"
 #include "VulkanContext.h"
 
@@ -26,22 +28,16 @@ public:
     explicit Renderer(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Window>& window);
     ~Renderer();
 
-    void Begin();
+    void Begin() const;
     void Draw();
 
 private:
     FrameContext* BeginFrame();
-    void Render(const FrameContext& fc) const;
-    void SubmitUI(const FrameContext& fc) const;
     void Submit(const FrameContext& fc) const;
     void Present(const FrameContext& fc);
 
 private:
-    void Init();
-    void InitImGUI();
-
     void Cleanup();
-    void CleanupImGui() const;
 
     enum class AcquireError {
         Suboptimal,
@@ -55,19 +51,13 @@ private:
     void Resize();
 
     void CreateSwapChain();
-    void CreateGraphicsPipeline();
-    void CreateVertexBuffer();
 
 private:
     std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Window> window;
     std::unique_ptr<ComputePipeline> computePipeline;
-
-    vk::PipelineLayout graphicsPipelineLayout = nullptr;
-    vk::Pipeline graphicsPipeline = nullptr;
-
-    vk::Buffer vertexBuffer = nullptr;
-    vk::DeviceMemory vertexBufferMemory = nullptr;
+    std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+    std::unique_ptr<ImGuiPipeline> uiPipeline;
 
     vk::SwapchainKHR swapChain = nullptr;
     std::vector<vk::Image> swapChainImages;

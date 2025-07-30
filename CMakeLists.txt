@@ -20,6 +20,10 @@ add_executable(${PROJECT_NAME}
         src/Renderer/ComputePipeline.h
         src/Renderer/VulkanContext.cpp
         src/Renderer/VulkanContext.h
+        src/Renderer/GraphicsPipeline.cpp
+        src/Renderer/GraphicsPipeline.h
+        src/Renderer/ImGuiPipeline.cpp
+        src/Renderer/ImGuiPipeline.h
 )
 
 include(Dependencies.cmake)

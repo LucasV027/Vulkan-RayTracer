@@ -11,21 +11,16 @@
 Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
                    const std::shared_ptr<Window>& window) : context(context), window(window) {
     CreateSwapChain();
-    CreateGraphicsPipeline();
-    CreateVertexBuffer();
-
-    InitImGUI();
 
     computePipeline = std::make_unique<ComputePipeline>(context);
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapChainDimensions.format);
+    uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapChainDimensions.format, swapChainImages.size());
 }
 
 Renderer::~Renderer() {
     // Don't release anything until the GPU is completely idle.
     if (context->device) context->device.waitIdle();
 
-    computePipeline.reset();
-
-    CleanupImGui();
     Cleanup();
 }
 
@@ -34,17 +29,19 @@ void Renderer::Draw() {
         computePipeline->UpdateUniform(14); // Test
         computePipeline->Dispatch(fc->commandBuffer, 16, 1, 1);
 
-        Render(*fc);
-        SubmitUI(*fc);
+        graphicsPipeline->Render(fc->commandBuffer, swapChainImagesViews[fc->index], swapChainDimensions.width,
+                                 swapChainDimensions.height);
+
+        uiPipeline->Render(fc->commandBuffer, swapChainImagesViews[fc->index], swapChainDimensions.width,
+                           swapChainDimensions.height);
+
         Submit(*fc);
         Present(*fc);
     }
 }
 
-void Renderer::Begin() {
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+void Renderer::Begin() const {
+    uiPipeline->Begin();
 }
 
 FrameContext* Renderer::BeginFrame() {
@@ -76,98 +73,6 @@ FrameContext* Renderer::BeginFrame() {
     );
 
     return &frame;
-}
-
-void Renderer::Render(const FrameContext& fc) const {
-    constexpr vk::ClearValue clearValue{
-        .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
-    };
-
-    vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = swapChainImagesViews[fc.index],
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = clearValue
-    };
-
-    const vk::RenderingInfo renderingInfo{
-        .renderArea = {
-            .offset = {0, 0},
-            .extent = {
-                .width = swapChainDimensions.width,
-                .height = swapChainDimensions.height
-            }
-        },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment
-    };
-
-    fc.commandBuffer.beginRendering(renderingInfo);
-
-    fc.commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
-
-    const vk::Viewport vp{
-        .width = static_cast<float>(swapChainDimensions.width),
-        .height = static_cast<float>(swapChainDimensions.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f
-    };
-
-    const vk::Rect2D scissor{
-        .extent = {
-            .width = swapChainDimensions.width,
-            .height = swapChainDimensions.height
-        }
-    };
-
-    fc.commandBuffer.setViewport(0, vp);
-    fc.commandBuffer.setScissor(0, scissor);
-
-    fc.commandBuffer.setCullMode(vk::CullModeFlagBits::eNone);
-    fc.commandBuffer.setFrontFace(vk::FrontFace::eClockwise);
-    fc.commandBuffer.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
-
-    fc.commandBuffer.bindVertexBuffers(0, vertexBuffer, {0});
-    fc.commandBuffer.draw(QUAD.size(), 1, 0, 0);
-
-    fc.commandBuffer.endRendering();
-}
-
-void Renderer::SubmitUI(const FrameContext& fc) const {
-    ImGui::Render();
-
-    constexpr vk::ClearValue clearValue{
-        .color = std::array<float, 4>({{0.f, 0.f, 0.f, 0.f}}), // useless (only for API)
-    };
-
-    vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = swapChainImagesViews[fc.index],
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = clearValue
-    };
-
-    const vk::RenderingInfo renderingInfo{
-        .renderArea = {
-            .offset = {0, 0},
-            .extent = {
-                .width = swapChainDimensions.width,
-                .height = swapChainDimensions.height
-            }
-        },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment
-    };
-
-    fc.commandBuffer.beginRendering(renderingInfo);
-
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), fc.commandBuffer);
-
-    fc.commandBuffer.endRendering();
 }
 
 void Renderer::Submit(const FrameContext& fc) const {
@@ -217,56 +122,13 @@ void Renderer::Present(const FrameContext& fc) {
     }
 }
 
-void Renderer::InitImGUI() {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-
-    ImGui::StyleColorsDark();
-
-    // Init GLFW
-    ImGui_ImplGlfw_InitForVulkan(window->Handle(), true);
-
-    // Init Vulkan backend
-    vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &swapChainDimensions.format,
-    };
-
-    ImGui_ImplVulkan_InitInfo initInfo{
-        .Instance = context->instance,
-        .PhysicalDevice = context->physicalDevice,
-        .Device = context->device,
-        .QueueFamily = context->graphicsQueueIndex,
-        .Queue = context->graphicsQueue,
-        .DescriptorPool = context->mainDescriptorPool,
-        .MinImageCount = 2,
-        .ImageCount = static_cast<uint32_t>(swapChainImages.size()),
-        .UseDynamicRendering = true,
-        .PipelineRenderingCreateInfo = pipelineRenderingInfo,
-    };
-
-    ImGui_ImplVulkan_Init(&initInfo);
-}
-
 void Renderer::Cleanup() {
     for (auto& perFrame : perFrames) perFrame.Destroy(context->device);
     perFrames.clear();
 
-    if (graphicsPipeline) context->device.destroyPipeline(graphicsPipeline);
-    if (graphicsPipelineLayout) context->device.destroyPipelineLayout(graphicsPipelineLayout);
-
     for (const vk::ImageView imageView : swapChainImagesViews) context->device.destroyImageView(imageView);
 
     if (swapChain) context->device.destroySwapchainKHR(swapChain);
-
-    if (vertexBuffer) context->device.destroyBuffer(vertexBuffer);
-    if (vertexBufferMemory) context->device.freeMemory(vertexBufferMemory);
-}
-
-void Renderer::CleanupImGui() const {
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
 }
 
 std::expected<uint32_t, Renderer::AcquireError> Renderer::AcquireNextImage() {
@@ -435,170 +297,6 @@ void Renderer::CreateSwapChain() {
     for (auto& perFrame : perFrames) {
         perFrame.Init(context->device, context->graphicsQueueIndex);
     }
-}
-
-void Renderer::CreateGraphicsPipeline() {
-    graphicsPipelineLayout = context->device.createPipelineLayout({});
-
-    vk::VertexInputBindingDescription bindingDescription{
-        .binding = 0,
-        .stride = 2 * sizeof(float),
-        .inputRate = vk::VertexInputRate::eVertex
-    };
-
-    // Define the vertex input attribute descriptions
-    std::array<vk::VertexInputAttributeDescription, 1> attributeDescriptions = {
-        {
-            {
-                .location = 0,
-                .binding = 0,
-                .format = vk::Format::eR32G32Sfloat,
-                .offset = 0
-            },
-        }
-    };
-
-    // Create the vertex input state
-    vk::PipelineVertexInputStateCreateInfo vertexInput{
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-        .pVertexAttributeDescriptions = attributeDescriptions.data()
-    };
-
-
-    // Specify we will use triangle lists to draw geometry.
-    vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList
-    };
-
-    // Specify rasterization state.
-    vk::PipelineRasterizationStateCreateInfo raster{
-        .polygonMode = vk::PolygonMode::eFill,
-        .lineWidth = 1.0f
-    };
-
-    // Specify that these states will be dynamic, i.e. not part of pipeline state object.
-    std::vector<vk::DynamicState> dynamicStates = {
-        vk::DynamicState::eViewport,
-        vk::DynamicState::eScissor,
-        vk::DynamicState::eCullMode,
-        vk::DynamicState::eFrontFace,
-        vk::DynamicState::ePrimitiveTopology
-    };
-
-    vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo{
-        .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
-        .pDynamicStates = dynamicStates.data()
-    };
-
-
-    // Our attachment will write to all color channels, but no blending is enabled.
-    vk::PipelineColorBlendAttachmentState blendAttachment{
-        .colorWriteMask =
-        vk::ColorComponentFlagBits::eR |
-        vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB |
-        vk::ColorComponentFlagBits::eA
-    };
-
-    vk::PipelineColorBlendStateCreateInfo blend{
-        .attachmentCount = 1,
-        .pAttachments = &blendAttachment
-    };
-
-    // We will have one viewport and scissor box.
-    vk::PipelineViewportStateCreateInfo viewport{
-        .viewportCount = 1,
-        .scissorCount = 1
-    };
-
-    // Disable all depth testing.
-    vk::PipelineDepthStencilStateCreateInfo depthStencil{
-        .depthCompareOp = vk::CompareOp::eAlways
-    };
-
-    // No multisampling.
-    vk::PipelineMultisampleStateCreateInfo multisample{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1
-    };
-
-
-    auto vertShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.vert.spv");
-    auto fragShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.frag.spv");
-
-    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
-        {
-            {
-                .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = vertShaderModule.get(),
-                .pName = "main"
-            },
-            {
-                .stage = vk::ShaderStageFlagBits::eFragment,
-                .module = fragShaderModule.get(),
-                .pName = "main"
-            }
-        }
-    };
-
-    // Pipeline rendering info (for dynamic rendering).
-    vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &swapChainDimensions.format
-    };
-
-    // Create the graphics pipeline.
-    vk::GraphicsPipelineCreateInfo pipelineCreateInfo{
-        .pNext = &pipelineRenderingInfo,
-        .stageCount = static_cast<uint32_t>(shaderStages.size()),
-        .pStages = shaderStages.data(),
-        .pVertexInputState = &vertexInput,
-        .pInputAssemblyState = &inputAssembly,
-        .pViewportState = &viewport,
-        .pRasterizationState = &raster,
-        .pMultisampleState = &multisample,
-        .pDepthStencilState = &depthStencil,
-        .pColorBlendState = &blend,
-        .pDynamicState = &dynamicStateCreateInfo,
-        .layout = graphicsPipelineLayout,
-        // We need to specify the pipeline layout description up front as well.
-        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
-        .subpass = 0,
-    };
-
-    vk::Result result;
-    std::tie(result, graphicsPipeline) = context->device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
-    if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
-}
-
-void Renderer::CreateVertexBuffer() {
-    const vk::DeviceSize bufferSize = sizeof(QUAD[0]) * QUAD.size();
-
-    const vk::BufferCreateInfo vertexBufferCreateInfo{
-        .size = bufferSize,
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
-        .sharingMode = vk::SharingMode::eExclusive
-    };
-
-    vertexBuffer = context->device.createBuffer(vertexBufferCreateInfo);
-
-    const vk::MemoryRequirements memoryRequirements = context->device.getBufferMemoryRequirements(vertexBuffer);
-
-    const vk::MemoryAllocateInfo allocInfo{
-        .allocationSize = memoryRequirements.size,
-        .memoryTypeIndex =
-        vkHelpers::FindMemoryType(context->physicalDevice, memoryRequirements.memoryTypeBits,
-                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
-    };
-
-    vertexBufferMemory = context->device.allocateMemory(allocInfo);
-
-    context->device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-
-    void* data = context->device.mapMemory(vertexBufferMemory, 0, bufferSize);
-    memcpy(data, QUAD.data(), bufferSize);
-    context->device.unmapMemory(vertexBufferMemory);
 }
 
 void FrameContext::Init(const vk::Device device, const uint32_t graphicsQueueIndex) {
