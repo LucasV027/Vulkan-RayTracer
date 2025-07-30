@@ -7,7 +7,7 @@
 
 Application::Application() {
     try {
-        window = Window::Create(width, height, appName);
+        window = std::make_shared<Window>(width, height, appName);
         context = std::make_shared<VulkanContext>(window);
         renderer = std::make_unique<Renderer>(context, window);
     } catch (const std::exception& e) {

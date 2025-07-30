@@ -1,14 +1,6 @@
 #include "Window.h"
 
-Window::~Window() {
-    glfwDestroyWindow(handle);
-    windowCount--;
-    if (windowCount == 0) glfwTerminate();
-}
-
-std::shared_ptr<Window> Window::Create(const uint32_t width, const uint32_t height, const std::string& title) {
-    auto window = std::make_shared<Window>();
-
+Window::Window(const uint32_t width, const uint32_t height, const std::string& title) {
     if (windowCount == 0) {
         if (!glfwInit()) {
             throw std::runtime_error("Failed to initialize GLFW");
@@ -17,12 +9,17 @@ std::shared_ptr<Window> Window::Create(const uint32_t width, const uint32_t heig
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    window->handle = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
-    if (!window) { throw std::runtime_error("Failed to create GLFW window"); }
+    handle = glfwCreateWindow((int)width, (int)height, title.c_str(), nullptr, nullptr);
+    if (!handle) { throw std::runtime_error("Failed to create GLFW window"); }
 
     ++windowCount;
-    glfwMakeContextCurrent(window->handle);
-    return window;
+    glfwMakeContextCurrent(handle);
+}
+
+Window::~Window() {
+    glfwDestroyWindow(handle);
+    windowCount--;
+    if (windowCount == 0) glfwTerminate();
 }
 
 void Window::PollEvents() const {

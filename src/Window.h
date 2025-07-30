@@ -11,10 +11,8 @@
 
 class Window {
 public:
-    Window() = default;
+    Window(uint32_t width, uint32_t height, const std::string& title);
     ~Window();
-
-    static std::shared_ptr<Window> Create(uint32_t width, uint32_t height, const std::string& title);
 
     void PollEvents() const;
     bool ShouldClose() const;
