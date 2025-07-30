@@ -19,9 +19,7 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
-        computePipeline->UpdateUniform(14); // Test
         computePipeline->Dispatch(fc->commandBuffer, 16, 1, 1);
-
         graphicsPipeline->Render(fc->commandBuffer);
         uiPipeline->Render(fc->commandBuffer);
 

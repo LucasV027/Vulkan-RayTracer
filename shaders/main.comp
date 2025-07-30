@@ -7,7 +7,10 @@ layout (set = 0, binding = 0) uniform Params {
 } ubo;
 
 layout (set = 0, binding = 1, rgba32f) uniform image2D accumulationImage;
-layout (set = 0, binding = 2, rgba32f) uniform image2D resultImage;
+layout (set = 0, binding = 2, rgba32f) uniform writeonly image2D resultImage;
 
 void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+    imageStore(resultImage, coord, color);
 }

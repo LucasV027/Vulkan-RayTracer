@@ -12,27 +12,27 @@ vk::Bool32 vkHelpers::DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT mes
                                     vk::DebugUtilsMessengerCallbackDataEXT const* pCallbackData,
                                     void* pUserData) {
     if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
-        LOGE("{} Validation Layer: Error: {}: {}",
+        LOGE("{} Validation Layer: Error: {}: {}\n",
              pCallbackData->messageIdNumber,
              pCallbackData->pMessageIdName,
              pCallbackData->pMessage);
     } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
-        LOGW("{} Validation Layer: Warning: {}: {}",
+        LOGW("{} Validation Layer: Warning: {}: {}\n",
              pCallbackData->messageIdNumber,
              pCallbackData->pMessageIdName,
              pCallbackData->pMessage);
     } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo) {
-        LOGI("{} Validation Layer: Information: {}: {}",
+        LOGI("{} Validation Layer: Information: {}: {}\n",
              pCallbackData->messageIdNumber,
              pCallbackData->pMessageIdName,
              pCallbackData->pMessage);
     } else if (messageTypes & vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance) {
-        LOGI("{} Validation Layer: Performance warning: {}: {}",
+        LOGI("{} Validation Layer: Performance warning: {}: {}\n",
              pCallbackData->messageIdNumber,
              pCallbackData->pMessageIdName,
              pCallbackData->pMessage);
     } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose) {
-        LOGD("{} Validation Layer: Verbose: {}: {}",
+        LOGD("{} Validation Layer: Verbose: {}: {}\n",
              pCallbackData->messageIdNumber,
              pCallbackData->pMessageIdName,
              pCallbackData->pMessage);

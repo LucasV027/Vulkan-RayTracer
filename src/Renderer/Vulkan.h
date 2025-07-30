@@ -33,9 +33,10 @@ namespace vkHelpers {
         vk::DeviceMemory memory = nullptr;
 
         template <typename T>
-        void Update(const vk::Device device, const T& uploadData) {
-            void* data = device.mapMemory(memory, 0, sizeof(T));
-            memcpy(data, &uploadData, sizeof(T));
+        void Update(vk::Device device, const std::vector<T>& data) {
+            void* mapped;
+            device.mapMemory(memory, 0, sizeof(T) * data.size(), {}, &mapped);
+            memcpy(mapped, data.data(), sizeof(T) * data.size());
             device.unmapMemory(memory);
         }
 

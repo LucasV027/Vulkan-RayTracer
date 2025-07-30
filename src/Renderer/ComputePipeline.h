@@ -8,7 +8,6 @@ public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
     ~ComputePipeline();
 
-    void UpdateUniform(uint32_t frameIndex);
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
 
 private:

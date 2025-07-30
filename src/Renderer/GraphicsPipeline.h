@@ -5,6 +5,11 @@
 #include "Swapchain.h"
 #include "VulkanContext.h"
 
+struct Vertex {
+    float pos[3];
+    float uv[2];
+};
+
 class GraphicsPipeline {
 public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Swapchain>& swapchain);
@@ -13,13 +18,9 @@ public:
     void Render(vk::CommandBuffer cb) const;
 
 private:
-    void CreateGraphicsPipeline();
-    void CreateVertexBuffer();
-
-    const std::vector<float> QUAD = {
-        -1.f, -1.f, 1.f, -1.f, 1.f, 1.f,
-        -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
-    };
+    void CreatePipelineLayout();
+    void CreatePipeline();
+    void CreateQuad();
 
 private:
     std::shared_ptr<VulkanContext> context;
@@ -28,6 +29,7 @@ private:
     vk::PipelineLayout pipelineLayout = nullptr;
     vk::Pipeline pipeline = nullptr;
 
-    vk::Buffer vertexBuffer = nullptr;
-    vk::DeviceMemory vertexBufferMemory = nullptr;
+    vkHelpers::AllocatedBuffer vertexBuffer;
+    vkHelpers::AllocatedBuffer indexBuffer;
+    uint32_t indexCount;
 };

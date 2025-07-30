@@ -2,11 +2,12 @@
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : context(context) {
     CreateDescriptorSetLayout();
-    CreatePipelineLayout();
-    CreatePipeline();
     AllocateDescriptorSet(context->mainDescriptorPool);
     CreateUniforms();
     UpdateDescriptorSet();
+
+    CreatePipelineLayout();
+    CreatePipeline();
 }
 
 ComputePipeline::~ComputePipeline() {
@@ -17,10 +18,6 @@ ComputePipeline::~ComputePipeline() {
     if (pipeline) context->device.destroyPipeline(pipeline);
     if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
     if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
-}
-
-void ComputePipeline::UpdateUniform(const uint32_t frameIndex) {
-    uniformBuffer.Update(context->device, frameIndex);
 }
 
 void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,

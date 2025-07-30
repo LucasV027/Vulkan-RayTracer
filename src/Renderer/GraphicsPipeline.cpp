@@ -1,18 +1,20 @@
 #include "GraphicsPipeline.h"
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
-                                   const std::shared_ptr<Swapchain>& swapchain) : context(context),
+                                   const std::shared_ptr<Swapchain>& swapchain) :
+    context(context),
     swapchain(swapchain) {
-    CreateGraphicsPipeline();
-    CreateVertexBuffer();
+    CreatePipelineLayout();
+    CreatePipeline();
+    CreateQuad();
 }
 
 GraphicsPipeline::~GraphicsPipeline() {
     if (pipeline) context->device.destroyPipeline(pipeline);
     if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
 
-    if (vertexBuffer) context->device.destroyBuffer(vertexBuffer);
-    if (vertexBufferMemory) context->device.freeMemory(vertexBufferMemory);
+    vertexBuffer.Destroy(context->device);
+    indexBuffer.Destroy(context->device);
 }
 
 void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
@@ -63,48 +65,53 @@ void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
     cb.setFrontFace(vk::FrontFace::eClockwise);
     cb.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
-    cb.bindVertexBuffers(0, vertexBuffer, {0});
-    cb.draw(QUAD.size(), 1, 0, 0);
+    constexpr vk::DeviceSize offsets[] = {0};
+    cb.bindVertexBuffers(0, 1, &vertexBuffer.buffer, offsets);
+    cb.bindIndexBuffer(indexBuffer.buffer, 0, vk::IndexType::eUint32);
+    cb.drawIndexed(indexCount, 1, 0, 0, 0);
 
     cb.endRendering();
 }
 
-void GraphicsPipeline::CreateGraphicsPipeline() {
+void GraphicsPipeline::CreatePipelineLayout() {
     pipelineLayout = context->device.createPipelineLayout({});
+}
 
-    vk::VertexInputBindingDescription bindingDescription{
+void GraphicsPipeline::CreatePipeline() {
+    vk::VertexInputBindingDescription vertexInputBindings{
         .binding = 0,
-        .stride = 2 * sizeof(float),
+        .stride = sizeof(Vertex),
         .inputRate = vk::VertexInputRate::eVertex
     };
 
-    // Define the vertex input attribute descriptions
-    std::array<vk::VertexInputAttributeDescription, 1> attributeDescriptions = {
+    std::array<vk::VertexInputAttributeDescription, 2> vertexInputAttributes{
         {
             {
                 .location = 0,
                 .binding = 0,
-                .format = vk::Format::eR32G32Sfloat,
+                .format = vk::Format::eR32G32B32Sfloat,
                 .offset = 0
             },
+            {
+                .location = 1,
+                .binding = 0,
+                .format = vk::Format::eR32G32Sfloat,
+                .offset = sizeof(Vertex::pos),
+            }
         }
     };
 
-    // Create the vertex input state
     vk::PipelineVertexInputStateCreateInfo vertexInput{
         .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDescription,
-        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-        .pVertexAttributeDescriptions = attributeDescriptions.data()
+        .pVertexBindingDescriptions = &vertexInputBindings,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size()),
+        .pVertexAttributeDescriptions = vertexInputAttributes.data()
     };
 
-
-    // Specify we will use triangle lists to draw geometry.
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList
     };
 
-    // Specify rasterization state.
     vk::PipelineRasterizationStateCreateInfo raster{
         .polygonMode = vk::PolygonMode::eFill,
         .lineWidth = 1.0f
@@ -123,7 +130,6 @@ void GraphicsPipeline::CreateGraphicsPipeline() {
         .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
         .pDynamicStates = dynamicStates.data()
     };
-
 
     // Our attachment will write to all color channels, but no blending is enabled.
     vk::PipelineColorBlendAttachmentState blendAttachment{
@@ -193,9 +199,8 @@ void GraphicsPipeline::CreateGraphicsPipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = pipelineLayout,
-        // We need to specify the pipeline layout description up front as well.
-        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
+        .layout = pipelineLayout, // We need to specify the pipeline layout description up front as well.
+        .renderPass = nullptr,    // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
@@ -204,31 +209,31 @@ void GraphicsPipeline::CreateGraphicsPipeline() {
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 }
 
-void GraphicsPipeline::CreateVertexBuffer() {
-    const vk::DeviceSize bufferSize = sizeof(QUAD[0]) * QUAD.size();
-
-    const vk::BufferCreateInfo vertexBufferCreateInfo{
-        .size = bufferSize,
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
-        .sharingMode = vk::SharingMode::eExclusive
+void GraphicsPipeline::CreateQuad() {
+    const std::vector<Vertex> QUAD_UV = {
+        {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+        {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}}
     };
 
-    vertexBuffer = context->device.createBuffer(vertexBufferCreateInfo);
+    const std::vector<uint32_t> QUAD_INDICES = {0, 1, 2, 2, 3, 0};
+    indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
 
-    const vk::MemoryRequirements memoryRequirements = context->device.getBufferMemoryRequirements(vertexBuffer);
+    vertexBuffer = vkHelpers::CreateBuffer(context->device,
+                                           context->physicalDevice,
+                                           sizeof(Vertex) * QUAD_UV.size(),
+                                           vk::BufferUsageFlagBits::eVertexBuffer,
+                                           vk::MemoryPropertyFlagBits::eHostVisible |
+                                           vk::MemoryPropertyFlagBits::eHostCoherent);
 
-    const vk::MemoryAllocateInfo allocInfo{
-        .allocationSize = memoryRequirements.size,
-        .memoryTypeIndex =
-        vkHelpers::FindMemoryType(context->physicalDevice, memoryRequirements.memoryTypeBits,
-                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
-    };
+    indexBuffer = vkHelpers::CreateBuffer(context->device,
+                                          context->physicalDevice,
+                                          sizeof(uint32_t) * QUAD_INDICES.size(),
+                                          vk::BufferUsageFlagBits::eIndexBuffer,
+                                          vk::MemoryPropertyFlagBits::eHostVisible |
+                                          vk::MemoryPropertyFlagBits::eHostCoherent);
 
-    vertexBufferMemory = context->device.allocateMemory(allocInfo);
-
-    context->device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-
-    void* data = context->device.mapMemory(vertexBufferMemory, 0, bufferSize);
-    memcpy(data, QUAD.data(), bufferSize);
-    context->device.unmapMemory(vertexBufferMemory);
+    vertexBuffer.Update(context->device, QUAD_UV);
+    indexBuffer.Update(context->device, QUAD_INDICES);
 }
