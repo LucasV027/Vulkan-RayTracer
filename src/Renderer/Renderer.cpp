@@ -16,8 +16,7 @@ Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
 
     InitImGUI();
 
-    computePipeline = std::make_unique<ComputePipeline>(context->device, context->physicalDevice,
-                                                        context->mainDescriptorPool);
+    computePipeline = std::make_unique<ComputePipeline>(context);
 }
 
 Renderer::~Renderer() {

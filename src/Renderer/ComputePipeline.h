@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Vulkan.h"
+#include "VulkanContext.h"
 
 class ComputePipeline {
 public:
-    ComputePipeline(vk::Device device, vk::PhysicalDevice physicalDevice, vk::DescriptorPool descriptorPool);
+    explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
     ~ComputePipeline();
 
     void UpdateUniform(uint32_t frameIndex);
@@ -19,8 +20,7 @@ private:
     void UpdateDescriptorSet() const;
 
 private:
-    vk::Device device;
-    vk::PhysicalDevice physicalDevice;
+    std::shared_ptr<VulkanContext> context;
 
     vk::DescriptorSetLayout descriptorSetLayout;
     vk::DescriptorSet descriptorSet;

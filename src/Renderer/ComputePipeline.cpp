@@ -1,29 +1,26 @@
 #include "ComputePipeline.h"
 
-ComputePipeline::ComputePipeline(const vk::Device device,
-                                 const vk::PhysicalDevice physicalDevice,
-                                 const vk::DescriptorPool descriptorPool) : device(device),
-                                                                            physicalDevice(physicalDevice) {
+ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : context(context) {
     CreateDescriptorSetLayout();
     CreatePipelineLayout();
     CreatePipeline();
-    AllocateDescriptorSet(descriptorPool);
+    AllocateDescriptorSet(context->mainDescriptorPool);
     CreateUniforms();
     UpdateDescriptorSet();
 }
 
 ComputePipeline::~ComputePipeline() {
-    uniformBuffer.Destroy(device);
-    accumulationImage.Destroy(device);
-    resultImage.Destroy(device);
+    uniformBuffer.Destroy(context->device);
+    accumulationImage.Destroy(context->device);
+    resultImage.Destroy(context->device);
 
-    if (pipeline) device.destroyPipeline(pipeline);
-    if (pipelineLayout) device.destroyPipelineLayout(pipelineLayout);
-    if (descriptorSetLayout) device.destroyDescriptorSetLayout(descriptorSetLayout);
+    if (pipeline) context->device.destroyPipeline(pipeline);
+    if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
+    if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
 }
 
 void ComputePipeline::UpdateUniform(const uint32_t frameIndex) {
-    uniformBuffer.Update(device, frameIndex);
+    uniformBuffer.Update(context->device, frameIndex);
 }
 
 void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
@@ -100,7 +97,7 @@ void ComputePipeline::CreateDescriptorSetLayout() {
         .pBindings = bindings.data(),
     };
 
-    descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
+    descriptorSetLayout = context->device.createDescriptorSetLayout(layoutInfo);
 }
 
 void ComputePipeline::CreatePipelineLayout() {
@@ -109,11 +106,11 @@ void ComputePipeline::CreatePipelineLayout() {
         .pSetLayouts = &descriptorSetLayout,
     };
 
-    pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
+    pipelineLayout = context->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
 void ComputePipeline::CreatePipeline() {
-    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(device, "../shaders/main.comp.spv");
+    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.comp.spv");
 
     const vk::PipelineShaderStageCreateInfo shaderStageInfo{
         .stage = vk::ShaderStageFlagBits::eCompute,
@@ -126,7 +123,7 @@ void ComputePipeline::CreatePipeline() {
         .layout = pipelineLayout,
     };
 
-    pipeline = device.createComputePipeline({}, pipelineInfo).value;
+    pipeline = context->device.createComputePipeline({}, pipelineInfo).value;
 }
 
 void ComputePipeline::AllocateDescriptorSet(const vk::DescriptorPool descriptorPool) {
@@ -136,28 +133,28 @@ void ComputePipeline::AllocateDescriptorSet(const vk::DescriptorPool descriptorP
         .pSetLayouts = &descriptorSetLayout,
     };
 
-    descriptorSet = device.allocateDescriptorSets(allocInfo).front();
+    descriptorSet = context->device.allocateDescriptorSets(allocInfo).front();
 }
 
 void ComputePipeline::CreateUniforms() {
     uniformBuffer = vkHelpers::CreateBuffer(
-        device,
-        physicalDevice,
+        context->device,
+        context->physicalDevice,
         sizeof(uint32_t),
         vk::BufferUsageFlagBits::eUniformBuffer,
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
 
     accumulationImage = vkHelpers::CreateStorageImage(
-        device,
-        physicalDevice,
+        context->device,
+        context->physicalDevice,
         800, 600,
         vk::Format::eR32G32B32A32Sfloat
     );
 
     resultImage = vkHelpers::CreateStorageImage(
-        device,
-        physicalDevice,
+        context->device,
+        context->physicalDevice,
         800, 600,
         vk::Format::eR32G32B32A32Sfloat
     );
@@ -209,5 +206,5 @@ void ComputePipeline::UpdateDescriptorSet() const {
         .pImageInfo = &resultInfo
     };
 
-    device.updateDescriptorSets(writeDescriptorSets, {});
+    context->device.updateDescriptorSets(writeDescriptorSets, {});
 }
