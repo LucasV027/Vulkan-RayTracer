@@ -6,9 +6,8 @@
 
 ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
                              const std::shared_ptr<Window>& window,
-                             const vk::Format format,
-                             const uint32_t imageCount)
-    : context(context), window(window) {
+                             const std::shared_ptr<Swapchain>& swapchain)
+    : context(context), window(window), swapchain(swapchain) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
@@ -18,6 +17,7 @@ ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
     ImGui_ImplGlfw_InitForVulkan(window->Handle(), true);
 
     // Init Vulkan backend
+    auto format = swapchain->GetFormat();
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &format,
@@ -31,7 +31,7 @@ ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
         .Queue = context->graphicsQueue,
         .DescriptorPool = context->mainDescriptorPool,
         .MinImageCount = 2,
-        .ImageCount = imageCount,
+        .ImageCount = swapchain->GetImageCount(),
         .UseDynamicRendering = true,
         .PipelineRenderingCreateInfo = pipelineRenderingInfo,
     };
@@ -51,10 +51,13 @@ void ImGuiPipeline::Begin() {
     ImGui::NewFrame();
 }
 
-void ImGuiPipeline::Render(const vk::CommandBuffer cb,
-                           const vk::ImageView imageView,
-                           const uint32_t width,
-                           const uint32_t height) {
+void ImGuiPipeline::End() {
+    ImGui::EndFrame();
+}
+
+void ImGuiPipeline::Render(const vk::CommandBuffer cb) const {
+    const auto& fc = swapchain->GetCurrentFrameContext();
+
     ImGui::Render();
 
     constexpr vk::ClearValue clearValue{
@@ -62,7 +65,7 @@ void ImGuiPipeline::Render(const vk::CommandBuffer cb,
     };
 
     vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = imageView,
+        .imageView = swapchain->GetImageViews()[fc.index],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -72,10 +75,7 @@ void ImGuiPipeline::Render(const vk::CommandBuffer cb,
     const vk::RenderingInfo renderingInfo{
         .renderArea = {
             .offset = {0, 0},
-            .extent = {
-                .width = width,
-                .height = height
-            }
+            .extent = swapchain->GetExtent(),
         },
         .layerCount = 1,
         .colorAttachmentCount = 1,

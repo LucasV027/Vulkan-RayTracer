@@ -2,21 +2,23 @@
 
 #include <memory>
 
+#include "Swapchain.h"
 #include "VulkanContext.h"
 
 class ImGuiPipeline {
 public:
-    explicit ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
-                           const std::shared_ptr<Window>& window,
-                           vk::Format format,
-                           uint32_t imageCount);
+    ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
+                  const std::shared_ptr<Window>& window,
+                  const std::shared_ptr<Swapchain>& swapchain);
 
     ~ImGuiPipeline();
 
     void Begin();
-    void Render(vk::CommandBuffer cb, vk::ImageView imageView, uint32_t width, uint32_t height);
+    void End();
+    void Render(vk::CommandBuffer cb) const;
 
 private:
     std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Window> window;
+    std::shared_ptr<Swapchain> swapchain;
 };

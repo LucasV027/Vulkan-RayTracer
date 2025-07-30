@@ -2,17 +2,18 @@
 
 #include <memory>
 
+#include "Swapchain.h"
 #include "VulkanContext.h"
 
 class GraphicsPipeline {
 public:
-    GraphicsPipeline(const std::shared_ptr<VulkanContext>& context, vk::Format format);
+    GraphicsPipeline(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Swapchain>& swapchain);
     ~GraphicsPipeline();
 
-    void Render(vk::CommandBuffer cb, vk::ImageView imageView, uint32_t width, uint32_t height) const;
+    void Render(vk::CommandBuffer cb) const;
 
 private:
-    void CreateGraphicsPipeline(vk::Format format);
+    void CreateGraphicsPipeline();
     void CreateVertexBuffer();
 
     const std::vector<float> QUAD = {
@@ -22,6 +23,7 @@ private:
 
 private:
     std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<Swapchain> swapchain;
 
     vk::PipelineLayout pipelineLayout = nullptr;
     vk::Pipeline pipeline = nullptr;

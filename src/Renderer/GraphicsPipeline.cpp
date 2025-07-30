@@ -1,8 +1,9 @@
 #include "GraphicsPipeline.h"
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
-                                   const vk::Format format) : context(context) {
-    CreateGraphicsPipeline(format);
+                                   const std::shared_ptr<Swapchain>& swapchain) : context(context),
+    swapchain(swapchain) {
+    CreateGraphicsPipeline();
     CreateVertexBuffer();
 }
 
@@ -14,29 +15,26 @@ GraphicsPipeline::~GraphicsPipeline() {
     if (vertexBufferMemory) context->device.freeMemory(vertexBufferMemory);
 }
 
-void GraphicsPipeline::Render(const vk::CommandBuffer cb,
-                              const vk::ImageView imageView,
-                              const uint32_t width,
-                              const uint32_t height) const {
+void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
+    const auto& fc = swapchain->GetCurrentFrameContext();
+
     constexpr vk::ClearValue clearValue{
         .color = std::array<float, 4>({{0.01f, 0.01f, 0.033f, 1.0f}}),
     };
 
     vk::RenderingAttachmentInfo colorAttachment{
-        .imageView = imageView,
+        .imageView = swapchain->GetImageViews()[fc.index],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = clearValue
     };
 
+    const auto extent = swapchain->GetExtent();
     const vk::RenderingInfo renderingInfo{
         .renderArea = {
             .offset = {0, 0},
-            .extent = {
-                .width = width,
-                .height = height
-            }
+            .extent = extent,
         },
         .layerCount = 1,
         .colorAttachmentCount = 1,
@@ -48,17 +46,14 @@ void GraphicsPipeline::Render(const vk::CommandBuffer cb,
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
     const vk::Viewport vp{
-        .width = static_cast<float>(width),
-        .height = static_cast<float>(height),
+        .width = static_cast<float>(extent.width),
+        .height = static_cast<float>(extent.height),
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
 
     const vk::Rect2D scissor{
-        .extent = {
-            .width = width,
-            .height = height
-        }
+        .extent = extent,
     };
 
     cb.setViewport(0, vp);
@@ -74,7 +69,7 @@ void GraphicsPipeline::Render(const vk::CommandBuffer cb,
     cb.endRendering();
 }
 
-void GraphicsPipeline::CreateGraphicsPipeline(vk::Format format) {
+void GraphicsPipeline::CreateGraphicsPipeline() {
     pipelineLayout = context->device.createPipelineLayout({});
 
     vk::VertexInputBindingDescription bindingDescription{
@@ -179,9 +174,10 @@ void GraphicsPipeline::CreateGraphicsPipeline(vk::Format format) {
     };
 
     // Pipeline rendering info (for dynamic rendering).
+    auto format = swapchain->GetFormat();
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &format
+        .pColorAttachmentFormats = &format,
     };
 
     // Create the graphics pipeline.
