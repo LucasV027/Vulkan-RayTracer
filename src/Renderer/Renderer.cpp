@@ -17,7 +17,7 @@ Renderer::~Renderer() {
     if (context->device) context->device.waitIdle();
 }
 
-void Renderer::Draw() {
+void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
         computePipeline->UpdateUniform(14); // Test
         computePipeline->Dispatch(fc->commandBuffer, 16, 1, 1);
@@ -27,9 +27,9 @@ void Renderer::Draw() {
 
         Submit(*fc);
         Present(*fc);
+    } else {
+        uiPipeline->End();
     }
-
-    uiPipeline->End();
 }
 
 void Renderer::Begin() const {

@@ -1,7 +1,5 @@
 #include "Swapchain.h"
 
-#include "Log.h"
-
 Swapchain::Swapchain(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Window>& window) :
     context(context),
     window(window) {
@@ -75,7 +73,7 @@ void Swapchain::CreateSwapchain() {
 
     const auto oldSwapchain = swapchain;
 
-    vk::SwapchainCreateInfoKHR createInfo{
+    const vk::SwapchainCreateInfoKHR createInfo{
         .surface = context->surface,
         .minImageCount = imageCount,
         .imageFormat = surfaceFormat.format,

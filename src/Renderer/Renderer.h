@@ -14,7 +14,7 @@ public:
     ~Renderer();
 
     void Begin() const;
-    void Draw();
+    void Draw() const;
 
 private:
     FrameContext* BeginFrame() const;

@@ -7,7 +7,10 @@
 ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
                              const std::shared_ptr<Window>& window,
                              const std::shared_ptr<Swapchain>& swapchain)
-    : context(context), window(window), swapchain(swapchain) {
+    : context(context),
+      window(window),
+      swapchain(swapchain) {
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
@@ -45,17 +48,21 @@ ImGuiPipeline::~ImGuiPipeline() {
     ImGui::DestroyContext();
 }
 
-void ImGuiPipeline::Begin() {
+void ImGuiPipeline::Begin() const {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    frame = true;
 }
 
-void ImGuiPipeline::End() {
-    ImGui::EndFrame();
+void ImGuiPipeline::End() const {
+    if (frame) ImGui::EndFrame();
 }
 
 void ImGuiPipeline::Render(const vk::CommandBuffer cb) const {
+    if (!frame) return;
+
     const auto& fc = swapchain->GetCurrentFrameContext();
 
     ImGui::Render();
@@ -87,4 +94,6 @@ void ImGuiPipeline::Render(const vk::CommandBuffer cb) const {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
 
     cb.endRendering();
+
+    frame = false;
 }

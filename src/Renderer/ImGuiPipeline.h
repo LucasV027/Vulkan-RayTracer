@@ -13,12 +13,14 @@ public:
 
     ~ImGuiPipeline();
 
-    void Begin();
-    void End();
+    void Begin() const;
+    void End() const;
     void Render(vk::CommandBuffer cb) const;
 
 private:
     std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Window> window;
     std::shared_ptr<Swapchain> swapchain;
+
+    mutable bool frame = false;
 };
