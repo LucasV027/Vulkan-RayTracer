@@ -27,6 +27,9 @@ add_executable(${PROJECT_NAME}
         src/Renderer/SwapChain.cpp
         src/Renderer/SwapChain.h
         src/Renderer/Pipeline.h
+        src/Renderer/DescriptorSet.h
+        src/Renderer/DescriptorSet.cpp
+        src/Renderer/DescriptorSet.h
 )
 
 include(Dependencies.cmake)

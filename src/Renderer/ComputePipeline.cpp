@@ -1,11 +1,9 @@
 #include "ComputePipeline.h"
 
-ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : Pipeline(context) {
-    CreateDescriptorSetLayout();
-    AllocateDescriptorSet();
-    CreateUniforms();
-    UpdateDescriptorSet();
+#include "DescriptorSet.h"
 
+ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : Pipeline(context) {
+    CreateDescriptorSet();
     CreatePipelineLayout();
     CreatePipeline();
 }
@@ -60,52 +58,23 @@ void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
     );
 }
 
-void ComputePipeline::CreateDescriptorSetLayout() {
-    std::array<vk::DescriptorSetLayoutBinding, 3> bindings;
+void ComputePipeline::CreateDescriptorSet() {
+    constexpr auto stage = vk::ShaderStageFlagBits::eCompute;
+    DescriptorSetLayoutBuilder layoutBuilder;
+    descriptorSetLayout = layoutBuilder
+                          .AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
+                          .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
+                          .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
+                          .Build(context->device);
 
-    // UBO (binding = 0)
-    bindings[0] = {
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute
-    };
-
-    // Storage image - accumulation (binding = 1)
-    bindings[1] = {
-        .binding = 1,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute
-    };
-
-    // Storage image - result (binding = 2)
-    bindings[2] = {
-        .binding = 2,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute
-    };
-
-    const vk::DescriptorSetLayoutCreateInfo layoutInfo{
-        .bindingCount = static_cast<uint32_t>(bindings.size()),
-        .pBindings = bindings.data(),
-    };
-
-    descriptorSetLayout = context->device.createDescriptorSetLayout(layoutInfo);
-}
-
-void ComputePipeline::AllocateDescriptorSet() {
     const vk::DescriptorSetAllocateInfo allocInfo{
         .descriptorPool = context->mainDescriptorPool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
+        .pSetLayouts = &descriptorSetLayout
     };
 
-    descriptorSet = context->device.allocateDescriptorSets(allocInfo).front();
-}
+    descriptorSet = context->device.allocateDescriptorSets(allocInfo)[0];
 
-void ComputePipeline::CreateUniforms() {
     uniformBuffer = vkHelpers::CreateBuffer(
         context->device,
         context->physicalDevice,
@@ -127,55 +96,13 @@ void ComputePipeline::CreateUniforms() {
         800, 600,
         vk::Format::eR32G32B32A32Sfloat
     );
-}
 
-void ComputePipeline::UpdateDescriptorSet() const {
-    std::array<vk::WriteDescriptorSet, 3> writeDescriptorSets;
 
-    // UBO
-    vk::DescriptorBufferInfo bufferInfo{
-        .buffer = uniformBuffer.buffer,
-        .offset = 0,
-        .range = sizeof(uint32_t),
-    };
-
-    writeDescriptorSets[0] = {
-        .dstSet = descriptorSet,
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .pBufferInfo = &bufferInfo,
-    };
-
-    // Storage Image: accumulation
-    vk::DescriptorImageInfo accumulationInfo{
-        .imageView = accumulationImage.view,
-        .imageLayout = vk::ImageLayout::eGeneral
-    };
-
-    writeDescriptorSets[1] = {
-        .dstSet = descriptorSet,
-        .dstBinding = 1,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .pImageInfo = &accumulationInfo
-    };
-
-    // Storage Image: result
-    vk::DescriptorImageInfo resultInfo{
-        .imageView = resultImage.view,
-        .imageLayout = vk::ImageLayout::eGeneral
-    };
-
-    writeDescriptorSets[2] = {
-        .dstSet = descriptorSet,
-        .dstBinding = 2,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .pImageInfo = &resultInfo
-    };
-
-    context->device.updateDescriptorSets(writeDescriptorSets, {});
+    DescriptorSetWriter writer;
+    writer.WriteBuffer(0, uniformBuffer.buffer, sizeof(uint32_t))
+          .WriteStorageImage(1, accumulationImage.view)
+          .WriteStorageImage(2, resultImage.view)
+          .Update(context->device, descriptorSet);
 }
 
 void ComputePipeline::CreatePipelineLayout() {

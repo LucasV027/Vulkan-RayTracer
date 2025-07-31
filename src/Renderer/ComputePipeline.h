@@ -12,11 +12,7 @@ public:
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
 
 private:
-    void CreateDescriptorSetLayout();
-    void AllocateDescriptorSet();
-    void CreateUniforms();
-    void UpdateDescriptorSet() const;
-
+    void CreateDescriptorSet();
     void CreatePipelineLayout();
     void CreatePipeline();
 

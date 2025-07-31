@@ -56,10 +56,10 @@ FrameContext* Renderer::BeginFrame() const {
         swapchain->GetImages()[fc->index],
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal,
-        {},                                                // srcAccessMask
-        vk::AccessFlagBits2::eColorAttachmentWrite,        // dstAccessMask
-        vk::PipelineStageFlagBits2::eTopOfPipe,            // srcStage
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput // dstStage
+        {},
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits2::eTopOfPipe,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput
     );
 
     return fc;
@@ -70,10 +70,10 @@ void Renderer::Submit(const FrameContext& fc) const {
                                      swapchain->GetImages()[fc.index],
                                      vk::ImageLayout::eColorAttachmentOptimal,
                                      vk::ImageLayout::ePresentSrcKHR,
-                                     vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-                                     {},                                                 // dstAccessMask
-                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                                     vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
+                                     vk::AccessFlagBits2::eColorAttachmentWrite,
+                                     {},
+                                     vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                                     vk::PipelineStageFlagBits2::eBottomOfPipe
     );
 
     fc.commandBuffer.end();
