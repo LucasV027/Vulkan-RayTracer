@@ -2,7 +2,7 @@
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                                    const std::shared_ptr<Swapchain>& swapchain) :
-    context(context),
+    Pipeline(context),
     swapchain(swapchain) {
     CreatePipelineLayout();
     CreatePipeline();
@@ -10,9 +10,6 @@ GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context
 }
 
 GraphicsPipeline::~GraphicsPipeline() {
-    if (pipeline) context->device.destroyPipeline(pipeline);
-    if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
-
     vertexBuffer.Destroy(context->device);
     indexBuffer.Destroy(context->device);
 }
@@ -199,8 +196,8 @@ void GraphicsPipeline::CreatePipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = pipelineLayout, // We need to specify the pipeline layout description up front as well.
-        .renderPass = nullptr,    // Since we are using dynamic rendering this will set as null
+        .layout = pipelineLayout,      // We need to specify the pipeline layout description up front as well.
+        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 

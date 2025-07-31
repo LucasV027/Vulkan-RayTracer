@@ -26,6 +26,7 @@ add_executable(${PROJECT_NAME}
         src/Renderer/ImGuiPipeline.h
         src/Renderer/SwapChain.cpp
         src/Renderer/SwapChain.h
+        src/Renderer/Pipeline.h
 )
 
 include(Dependencies.cmake)

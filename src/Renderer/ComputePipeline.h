@@ -1,33 +1,30 @@
 #pragma once
 
+#include "Pipeline.h"
 #include "Vulkan.h"
 #include "VulkanContext.h"
 
-class ComputePipeline {
+class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
-    ~ComputePipeline();
+    ~ComputePipeline() override;
 
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
 
 private:
     void CreateDescriptorSetLayout();
-    void CreatePipelineLayout();
-    void CreatePipeline();
-    void AllocateDescriptorSet(vk::DescriptorPool descriptorPool);
+    void AllocateDescriptorSet();
     void CreateUniforms();
     void UpdateDescriptorSet() const;
 
-private:
-    std::shared_ptr<VulkanContext> context;
+    void CreatePipelineLayout();
+    void CreatePipeline();
 
+private:
     vk::DescriptorSetLayout descriptorSetLayout;
     vk::DescriptorSet descriptorSet;
 
     vkHelpers::AllocatedBuffer uniformBuffer;
     vkHelpers::AllocatedImage accumulationImage;
     vkHelpers::AllocatedImage resultImage;
-
-    vk::PipelineLayout pipelineLayout;
-    vk::Pipeline pipeline;
 };

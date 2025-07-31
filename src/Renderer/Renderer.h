@@ -28,7 +28,7 @@ private:
         Failed,
     };
 
-    std::expected<FrameContext* , AcquireError> AcquireNextImage() const;
+    std::expected<FrameContext*, AcquireError> AcquireNextImage() const;
 
     void Resize() const;
 

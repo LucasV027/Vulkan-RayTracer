@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "Pipeline.h"
 #include "Swapchain.h"
 #include "VulkanContext.h"
 
@@ -10,10 +11,12 @@ struct Vertex {
     float uv[2];
 };
 
-class GraphicsPipeline {
+class GraphicsPipeline final : public Pipeline {
 public:
-    GraphicsPipeline(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Swapchain>& swapchain);
-    ~GraphicsPipeline();
+    GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
+                     const std::shared_ptr<Swapchain>& swapchain);
+
+    ~GraphicsPipeline() override;
 
     void Render(vk::CommandBuffer cb) const;
 
@@ -23,13 +26,9 @@ private:
     void CreateQuad();
 
 private:
-    std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Swapchain> swapchain;
-
-    vk::PipelineLayout pipelineLayout = nullptr;
-    vk::Pipeline pipeline = nullptr;
 
     vkHelpers::AllocatedBuffer vertexBuffer;
     vkHelpers::AllocatedBuffer indexBuffer;
-    uint32_t indexCount;
+    uint32_t indexCount = 0u;
 };

@@ -7,6 +7,8 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
 
+#include "Log.h"
+
 namespace vkHelpers {
 #ifndef NDEBUG
     vk::Bool32 DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -33,11 +35,16 @@ namespace vkHelpers {
         vk::DeviceMemory memory = nullptr;
 
         template <typename T>
-        void Update(vk::Device device, const std::vector<T>& data) {
+        void Update(const vk::Device device, const std::vector<T>& data) {
             void* mapped;
-            device.mapMemory(memory, 0, sizeof(T) * data.size(), {}, &mapped);
-            memcpy(mapped, data.data(), sizeof(T) * data.size());
-            device.unmapMemory(memory);
+            const vk::Result result = device.mapMemory(memory, 0, sizeof(T) * data.size(), {}, &mapped);
+
+            if (result == vk::Result::eSuccess) {
+                memcpy(mapped, data.data(), sizeof(T) * data.size());
+                device.unmapMemory(memory);
+            } else {
+                LOGE("Failed to map memory! Error: {}", vk::to_string(result));
+            }
         }
 
         void Destroy(vk::Device device);

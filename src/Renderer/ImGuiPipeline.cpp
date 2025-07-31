@@ -7,10 +7,9 @@
 ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
                              const std::shared_ptr<Window>& window,
                              const std::shared_ptr<Swapchain>& swapchain)
-    : context(context),
+    : Pipeline(context),
       window(window),
       swapchain(swapchain) {
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 

@@ -1,8 +1,8 @@
 #include "ComputePipeline.h"
 
-ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : context(context) {
+ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : Pipeline(context) {
     CreateDescriptorSetLayout();
-    AllocateDescriptorSet(context->mainDescriptorPool);
+    AllocateDescriptorSet();
     CreateUniforms();
     UpdateDescriptorSet();
 
@@ -15,8 +15,6 @@ ComputePipeline::~ComputePipeline() {
     accumulationImage.Destroy(context->device);
     resultImage.Destroy(context->device);
 
-    if (pipeline) context->device.destroyPipeline(pipeline);
-    if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
     if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
 }
 
@@ -97,35 +95,9 @@ void ComputePipeline::CreateDescriptorSetLayout() {
     descriptorSetLayout = context->device.createDescriptorSetLayout(layoutInfo);
 }
 
-void ComputePipeline::CreatePipelineLayout() {
-    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
-    };
-
-    pipelineLayout = context->device.createPipelineLayout(pipelineLayoutInfo);
-}
-
-void ComputePipeline::CreatePipeline() {
-    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.comp.spv");
-
-    const vk::PipelineShaderStageCreateInfo shaderStageInfo{
-        .stage = vk::ShaderStageFlagBits::eCompute,
-        .module = shaderModule.get(),
-        .pName = "main",
-    };
-
-    const vk::ComputePipelineCreateInfo pipelineInfo{
-        .stage = shaderStageInfo,
-        .layout = pipelineLayout,
-    };
-
-    pipeline = context->device.createComputePipeline({}, pipelineInfo).value;
-}
-
-void ComputePipeline::AllocateDescriptorSet(const vk::DescriptorPool descriptorPool) {
+void ComputePipeline::AllocateDescriptorSet() {
     const vk::DescriptorSetAllocateInfo allocInfo{
-        .descriptorPool = descriptorPool,
+        .descriptorPool = context->mainDescriptorPool,
         .descriptorSetCount = 1,
         .pSetLayouts = &descriptorSetLayout,
     };
@@ -204,4 +176,30 @@ void ComputePipeline::UpdateDescriptorSet() const {
     };
 
     context->device.updateDescriptorSets(writeDescriptorSets, {});
+}
+
+void ComputePipeline::CreatePipelineLayout() {
+    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
+    };
+
+    pipelineLayout = context->device.createPipelineLayout(pipelineLayoutInfo);
+}
+
+void ComputePipeline::CreatePipeline() {
+    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.comp.spv");
+
+    const vk::PipelineShaderStageCreateInfo shaderStageInfo{
+        .stage = vk::ShaderStageFlagBits::eCompute,
+        .module = shaderModule.get(),
+        .pName = "main",
+    };
+
+    const vk::ComputePipelineCreateInfo pipelineInfo{
+        .stage = shaderStageInfo,
+        .layout = pipelineLayout,
+    };
+
+    pipeline = context->device.createComputePipeline({}, pipelineInfo).value;
 }
