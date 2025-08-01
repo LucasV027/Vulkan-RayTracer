@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "Buffer.h"
 #include "Pipeline.h"
 #include "Swapchain.h"
 #include "VulkanContext.h"
@@ -16,7 +17,7 @@ public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                      const std::shared_ptr<Swapchain>& swapchain);
 
-    ~GraphicsPipeline() override;
+    ~GraphicsPipeline() override = default;
 
     void Render(vk::CommandBuffer cb) const;
 
@@ -28,7 +29,7 @@ private:
 private:
     std::shared_ptr<Swapchain> swapchain;
 
-    vkHelpers::AllocatedBuffer vertexBuffer;
-    vkHelpers::AllocatedBuffer indexBuffer;
+    std::unique_ptr<Buffer> vertexBuffer;
+    std::unique_ptr<Buffer> indexBuffer;
     uint32_t indexCount = 0u;
 };

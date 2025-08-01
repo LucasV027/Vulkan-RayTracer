@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Pipeline.h"
 #include "Vulkan.h"
 #include "VulkanContext.h"
@@ -20,7 +21,7 @@ private:
     vk::DescriptorSetLayout descriptorSetLayout;
     vk::DescriptorSet descriptorSet;
 
-    vkHelpers::AllocatedBuffer uniformBuffer;
+    std::unique_ptr<Buffer> uniformBuffer;
     vkHelpers::AllocatedImage accumulationImage;
     vkHelpers::AllocatedImage resultImage;
 };

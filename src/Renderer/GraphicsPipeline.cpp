@@ -9,11 +9,6 @@ GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context
     CreateQuad();
 }
 
-GraphicsPipeline::~GraphicsPipeline() {
-    vertexBuffer.Destroy(context->device);
-    indexBuffer.Destroy(context->device);
-}
-
 void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
     const auto& fc = swapchain->GetCurrentFrameContext();
 
@@ -63,8 +58,9 @@ void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
     cb.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
     constexpr vk::DeviceSize offsets[] = {0};
-    cb.bindVertexBuffers(0, 1, &vertexBuffer.buffer, offsets);
-    cb.bindIndexBuffer(indexBuffer.buffer, 0, vk::IndexType::eUint32);
+    const auto vbo = vertexBuffer->GetHandle();
+    cb.bindVertexBuffers(0, 1, &vbo, offsets);
+    cb.bindIndexBuffer(indexBuffer->GetHandle(), 0, vk::IndexType::eUint32);
     cb.drawIndexed(indexCount, 1, 0, 0, 0);
 
     cb.endRendering();
@@ -196,8 +192,8 @@ void GraphicsPipeline::CreatePipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = pipelineLayout,      // We need to specify the pipeline layout description up front as well.
-        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
+        .layout = pipelineLayout, // We need to specify the pipeline layout description up front as well.
+        .renderPass = nullptr,    // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
@@ -216,21 +212,6 @@ void GraphicsPipeline::CreateQuad() {
 
     const std::vector<uint32_t> QUAD_INDICES = {0, 1, 2, 2, 3, 0};
     indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
-
-    vertexBuffer = vkHelpers::CreateBuffer(context->device,
-                                           context->physicalDevice,
-                                           sizeof(Vertex) * QUAD_UV.size(),
-                                           vk::BufferUsageFlagBits::eVertexBuffer,
-                                           vk::MemoryPropertyFlagBits::eHostVisible |
-                                           vk::MemoryPropertyFlagBits::eHostCoherent);
-
-    indexBuffer = vkHelpers::CreateBuffer(context->device,
-                                          context->physicalDevice,
-                                          sizeof(uint32_t) * QUAD_INDICES.size(),
-                                          vk::BufferUsageFlagBits::eIndexBuffer,
-                                          vk::MemoryPropertyFlagBits::eHostVisible |
-                                          vk::MemoryPropertyFlagBits::eHostCoherent);
-
-    vertexBuffer.Update(context->device, QUAD_UV);
-    indexBuffer.Update(context->device, QUAD_INDICES);
+    vertexBuffer = std::make_unique<Buffer>(context, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
+    indexBuffer = std::make_unique<Buffer>(context, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
 }

@@ -30,6 +30,8 @@ add_executable(${PROJECT_NAME}
         src/Renderer/DescriptorSet.h
         src/Renderer/DescriptorSet.cpp
         src/Renderer/DescriptorSet.h
+        src/Renderer/Buffer.cpp
+        src/Renderer/Buffer.h
 )
 
 include(Dependencies.cmake)

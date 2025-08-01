@@ -115,38 +115,6 @@ uint32_t vkHelpers::FindMemoryType(const vk::PhysicalDevice physicalDevice,
     throw std::runtime_error("Failed to find suitable memory type.");
 }
 
-void vkHelpers::AllocatedBuffer::Destroy(const vk::Device device) {
-    if (buffer) device.destroyBuffer(buffer);
-    if (memory) device.freeMemory(memory);
-    buffer = nullptr;
-    memory = nullptr;
-}
-
-vkHelpers::AllocatedBuffer vkHelpers::CreateBuffer(const vk::Device device,
-                                                   const vk::PhysicalDevice physicalDevice,
-                                                   const vk::DeviceSize size,
-                                                   const vk::BufferUsageFlags usage,
-                                                   const vk::MemoryPropertyFlags properties) {
-    const vk::BufferCreateInfo bufferInfo{
-        .size = size,
-        .usage = usage,
-        .sharingMode = vk::SharingMode::eExclusive,
-    };
-    const vk::Buffer buffer = device.createBuffer(bufferInfo);
-
-    const vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
-
-    const vk::MemoryAllocateInfo allocInfo{
-        .allocationSize = memRequirements.size,
-        .memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties),
-    };
-
-    const vk::DeviceMemory memory = device.allocateMemory(allocInfo);
-    device.bindBufferMemory(buffer, memory, 0);
-
-    return AllocatedBuffer{buffer, memory};
-}
-
 void vkHelpers::AllocatedImage::Destroy(const vk::Device device) {
     if (image) device.destroyImage(image);
     if (view) device.destroyImageView(view);

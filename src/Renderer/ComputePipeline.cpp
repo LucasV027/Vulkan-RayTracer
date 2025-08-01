@@ -9,7 +9,6 @@ ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) 
 }
 
 ComputePipeline::~ComputePipeline() {
-    uniformBuffer.Destroy(context->device);
     accumulationImage.Destroy(context->device);
     resultImage.Destroy(context->device);
 
@@ -75,13 +74,7 @@ void ComputePipeline::CreateDescriptorSet() {
 
     descriptorSet = context->device.allocateDescriptorSets(allocInfo)[0];
 
-    uniformBuffer = vkHelpers::CreateBuffer(
-        context->device,
-        context->physicalDevice,
-        sizeof(uint32_t),
-        vk::BufferUsageFlagBits::eUniformBuffer,
-        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-    );
+    uniformBuffer = std::make_unique<Buffer>(context, sizeof(uint32_t), vk::BufferUsageFlagBits::eUniformBuffer);
 
     accumulationImage = vkHelpers::CreateStorageImage(
         context->device,
@@ -99,7 +92,7 @@ void ComputePipeline::CreateDescriptorSet() {
 
 
     DescriptorSetWriter writer;
-    writer.WriteBuffer(0, uniformBuffer.buffer, sizeof(uint32_t))
+    writer.WriteBuffer(0, uniformBuffer->GetHandle(), uniformBuffer->GetSize())
           .WriteStorageImage(1, accumulationImage.view)
           .WriteStorageImage(2, resultImage.view)
           .Update(context->device, descriptorSet);
