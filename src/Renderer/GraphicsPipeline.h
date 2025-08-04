@@ -20,7 +20,7 @@ public:
 
     ~GraphicsPipeline() override;
 
-    void Render(vk::CommandBuffer cb) const;
+    void Record(vk::CommandBuffer cb) const override;
 
 private:
     void CreateDescriptorSet();

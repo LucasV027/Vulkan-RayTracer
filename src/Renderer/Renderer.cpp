@@ -21,9 +21,9 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
-        computePipeline->Dispatch(fc->commandBuffer, (800 + 15) / 16, 600, 1);
-        graphicsPipeline->Render(fc->commandBuffer);
-        uiPipeline->Render(fc->commandBuffer);
+        computePipeline->Record(fc->commandBuffer);
+        graphicsPipeline->Record(fc->commandBuffer);
+        uiPipeline->Record(fc->commandBuffer);
 
         Submit(*fc);
         Present(*fc);

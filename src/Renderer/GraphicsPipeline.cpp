@@ -37,7 +37,7 @@ GraphicsPipeline::~GraphicsPipeline() {
     if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
 }
 
-void GraphicsPipeline::Render(const vk::CommandBuffer cb) const {
+void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
     const auto& fc = swapchain->GetCurrentFrameContext();
 
     constexpr vk::ClearValue clearValue{

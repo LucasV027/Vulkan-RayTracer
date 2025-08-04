@@ -14,6 +14,10 @@ ComputePipeline::~ComputePipeline() {
     if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
 }
 
+void ComputePipeline::Record(const vk::CommandBuffer cb) const {
+    Dispatch(cb, (800 + 15) / 16, 600, 1);
+}
+
 void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
                                const uint32_t x,
                                const uint32_t y,

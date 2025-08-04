@@ -59,7 +59,7 @@ void ImGuiPipeline::End() const {
     if (frame) ImGui::EndFrame();
 }
 
-void ImGuiPipeline::Render(const vk::CommandBuffer cb) const {
+void ImGuiPipeline::Record(const vk::CommandBuffer cb) const {
     if (!frame) return;
 
     const auto& fc = swapchain->GetCurrentFrameContext();

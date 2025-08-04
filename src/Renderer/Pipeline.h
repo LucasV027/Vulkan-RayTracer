@@ -14,6 +14,8 @@ public:
         }
     };
 
+    virtual void Record(vk::CommandBuffer cb) const = 0;
+
 protected:
     std::shared_ptr<VulkanContext> context;
 
