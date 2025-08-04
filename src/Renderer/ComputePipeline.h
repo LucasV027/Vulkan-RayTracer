@@ -12,6 +12,7 @@ public:
     ~ComputePipeline() override;
 
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
+    vk::ImageView GetView() const { return resultImageView; }
 
 private:
     void CreateDescriptorSet();

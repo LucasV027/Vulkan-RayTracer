@@ -35,6 +35,11 @@ public:
                                            vk::ImageView imageView,
                                            vk::ImageLayout layout = vk::ImageLayout::eGeneral);
 
+    DescriptorSetWriter& WriteCombinedImageSampler(uint32_t binding,
+                                                   vk::Sampler sampler,
+                                                   vk::ImageView imageView,
+                                                   vk::ImageLayout layout);
+
     void Update(vk::Device device, vk::DescriptorSet descriptorSet);
     void Clear();
 

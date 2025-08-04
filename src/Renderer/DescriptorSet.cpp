@@ -13,7 +13,7 @@ DescriptorSetLayoutBuilder& DescriptorSetLayoutBuilder::AddBinding(const uint32_
     return *this;
 }
 
-vk::DescriptorSetLayout DescriptorSetLayoutBuilder::Build(vk::Device device) {
+vk::DescriptorSetLayout DescriptorSetLayoutBuilder::Build(const vk::Device device) {
     const vk::DescriptorSetLayoutCreateInfo createInfo{
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data()
@@ -81,6 +81,27 @@ DescriptorSetWriter& DescriptorSetWriter::WriteStorageImage(const uint32_t bindi
         .dstBinding = binding,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eStorageImage,
+        .pImageInfo = &imageInfos.back()
+    });
+
+    return *this;
+}
+
+DescriptorSetWriter& DescriptorSetWriter::WriteCombinedImageSampler(const uint32_t binding,
+                                                                    const vk::Sampler sampler,
+                                                                    const vk::ImageView imageView,
+                                                                    const vk::ImageLayout layout) {
+    imageInfos.push_back({
+        .sampler = sampler,
+        .imageView = imageView,
+        .imageLayout = layout
+    });
+
+    writes.push_back({
+        .sType = vk::StructureType::eWriteDescriptorSet,
+        .dstBinding = binding,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
         .pImageInfo = &imageInfos.back()
     });
 

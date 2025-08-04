@@ -11,7 +11,7 @@ Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
     window(window) {
     swapchain = std::make_shared<Swapchain>(context, window);
     computePipeline = std::make_unique<ComputePipeline>(context);
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, computePipeline->GetView());
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
 
@@ -21,7 +21,7 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
-        computePipeline->Dispatch(fc->commandBuffer, 16, 1, 1);
+        computePipeline->Dispatch(fc->commandBuffer, (800 + 15) / 16, 600, 1);
         graphicsPipeline->Render(fc->commandBuffer);
         uiPipeline->Render(fc->commandBuffer);
 

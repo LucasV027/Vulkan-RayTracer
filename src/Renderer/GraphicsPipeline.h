@@ -15,19 +15,27 @@ struct Vertex {
 class GraphicsPipeline final : public Pipeline {
 public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
-                     const std::shared_ptr<Swapchain>& swapchain);
+                     const std::shared_ptr<Swapchain>& swapchain,
+                     vk::ImageView resultImageView);
 
-    ~GraphicsPipeline() override = default;
+    ~GraphicsPipeline() override;
 
     void Render(vk::CommandBuffer cb) const;
 
 private:
+    void CreateDescriptorSet();
     void CreatePipelineLayout();
     void CreatePipeline();
     void CreateQuad();
 
 private:
     std::shared_ptr<Swapchain> swapchain;
+
+    vk::DescriptorSetLayout descriptorSetLayout;
+    vk::DescriptorSet descriptorSet;
+
+    vk::ImageView imageView;
+    vk::UniqueSampler sampler;
 
     std::unique_ptr<Buffer> vertexBuffer;
     std::unique_ptr<Buffer> indexBuffer;
