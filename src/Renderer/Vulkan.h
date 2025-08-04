@@ -7,7 +7,6 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
 
-#include "Log.h"
 
 namespace vkHelpers {
 #ifndef NDEBUG
@@ -29,18 +28,4 @@ namespace vkHelpers {
                                vk::PipelineStageFlags2 dstStage);
 
     uint32_t FindMemoryType(vk::PhysicalDevice physicalDevice, uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-
-    struct AllocatedImage {
-        vk::Image image = nullptr;
-        vk::DeviceMemory memory = nullptr;
-        vk::ImageView view = nullptr;
-
-        void Destroy(vk::Device device);
-    };
-
-    AllocatedImage CreateStorageImage(vk::Device device,
-                                      vk::PhysicalDevice physicalDevice,
-                                      uint32_t width,
-                                      uint32_t height,
-                                      vk::Format format);
 }

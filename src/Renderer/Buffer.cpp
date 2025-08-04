@@ -1,5 +1,7 @@
 #include "Buffer.h"
 
+#include "Log.h"
+
 Buffer::Buffer(const std::shared_ptr<VulkanContext>& context,
                const vk::DeviceSize size,
                const vk::BufferUsageFlags usage,

@@ -6,7 +6,9 @@
 #include "Log.h"
 
 Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
-                   const std::shared_ptr<Window>& window) : context(context), window(window) {
+                   const std::shared_ptr<Window>& window) :
+    context(context),
+    window(window) {
     swapchain = std::make_shared<Swapchain>(context, window);
     computePipeline = std::make_unique<ComputePipeline>(context);
     graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
