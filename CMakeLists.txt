@@ -34,6 +34,7 @@ add_executable(${PROJECT_NAME}
         src/Renderer/Buffer.h
         src/Renderer/Image.cpp
         src/Renderer/Image.h
+        src/Renderer/Pipeline.cpp
 )
 
 include(Dependencies.cmake)

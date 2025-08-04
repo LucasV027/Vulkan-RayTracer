@@ -24,14 +24,13 @@ public:
 
 private:
     void CreateDescriptorSet();
-    void CreatePipelineLayout();
     void CreatePipeline();
     void CreateQuad();
+    void CreateSampler();
 
 private:
     std::shared_ptr<Swapchain> swapchain;
 
-    vk::DescriptorSetLayout descriptorSetLayout;
     vk::DescriptorSet descriptorSet;
 
     vk::ImageView imageView;

@@ -19,11 +19,9 @@ private:
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
 
     void CreateDescriptorSet();
-    void CreatePipelineLayout();
     void CreatePipeline();
 
 private:
-    vk::DescriptorSetLayout descriptorSetLayout;
     vk::DescriptorSet descriptorSet;
 
     std::unique_ptr<Buffer> uniformBuffer;

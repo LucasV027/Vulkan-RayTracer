@@ -4,14 +4,13 @@
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : Pipeline(context) {
     CreateDescriptorSet();
-    CreatePipelineLayout();
+    Pipeline::CreatePipelineLayout();
     CreatePipeline();
 }
 
 ComputePipeline::~ComputePipeline() {
     if (accumulationImageView) context->device.destroyImageView(accumulationImageView);
     if (resultImageView) context->device.destroyImageView(resultImageView);
-    if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
 }
 
 void ComputePipeline::Record(const vk::CommandBuffer cb) const {
@@ -51,19 +50,12 @@ void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
 void ComputePipeline::CreateDescriptorSet() {
     constexpr auto stage = vk::ShaderStageFlagBits::eCompute;
     DescriptorSetLayoutBuilder layoutBuilder;
-    descriptorSetLayout = layoutBuilder
-                          .AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
-                          .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
-                          .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
-                          .Build(context->device);
+    layoutBuilder.AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
+                 .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
+                 .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
+                 .AddTo(context->device, descriptorSetLayouts);
 
-    const vk::DescriptorSetAllocateInfo allocInfo{
-        .descriptorPool = context->mainDescriptorPool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &descriptorSetLayout
-    };
-
-    descriptorSet = context->device.allocateDescriptorSets(allocInfo)[0];
+    descriptorSet = AllocateDescriptorSets()[0];
 
     uniformBuffer = std::make_unique<Buffer>(context, sizeof(uint32_t), vk::BufferUsageFlagBits::eUniformBuffer);
 
@@ -83,15 +75,6 @@ void ComputePipeline::CreateDescriptorSet() {
           .WriteStorageImage(1, accumulationImageView)
           .WriteStorageImage(2, resultImageView)
           .Update(context->device, descriptorSet);
-}
-
-void ComputePipeline::CreatePipelineLayout() {
-    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
-    };
-
-    pipelineLayout = context->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
 void ComputePipeline::CreatePipeline() {

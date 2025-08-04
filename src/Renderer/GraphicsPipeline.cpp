@@ -8,34 +8,14 @@ GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context
     Pipeline(context),
     swapchain(swapchain),
     imageView(resultImageView) {
-    vk::SamplerCreateInfo samplerInfo{};
-    samplerInfo.magFilter = vk::Filter::eLinear;
-    samplerInfo.minFilter = vk::Filter::eLinear;
-    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
-    samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
-    samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
-    samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.maxAnisotropy = 1.0f;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = vk::CompareOp::eAlways;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
-    samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-
-    sampler = context->device.createSamplerUnique(samplerInfo);
-
+    CreateSampler();
     CreateDescriptorSet();
-    CreatePipelineLayout();
+    Pipeline::CreatePipelineLayout();
     CreatePipeline();
     CreateQuad();
 }
 
-GraphicsPipeline::~GraphicsPipeline() {
-    if (descriptorSetLayout) context->device.destroyDescriptorSetLayout(descriptorSetLayout);
-}
+GraphicsPipeline::~GraphicsPipeline() {}
 
 void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
     const auto& fc = swapchain->GetCurrentFrameContext();
@@ -97,32 +77,15 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
 }
 
 void GraphicsPipeline::CreateDescriptorSet() {
-    constexpr auto stage = vk::ShaderStageFlagBits::eFragment;
     DescriptorSetLayoutBuilder layoutBuilder;
-    descriptorSetLayout = layoutBuilder
-                          .AddBinding(0, vk::DescriptorType::eCombinedImageSampler, stage)
-                          .Build(context->device);
+    layoutBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
+                 .AddTo(context->device, descriptorSetLayouts);
 
-    const vk::DescriptorSetAllocateInfo allocInfo{
-        .descriptorPool = context->mainDescriptorPool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &descriptorSetLayout
-    };
-
-    descriptorSet = context->device.allocateDescriptorSets(allocInfo)[0];
+    descriptorSet = AllocateDescriptorSets()[0];
 
     DescriptorSetWriter writer;
     writer.WriteCombinedImageSampler(0, sampler.get(), imageView, vk::ImageLayout::eShaderReadOnlyOptimal)
           .Update(context->device, descriptorSet);
-}
-
-void GraphicsPipeline::CreatePipelineLayout() {
-    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
-    };
-
-    pipelineLayout = context->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
 void GraphicsPipeline::CreatePipeline() {
@@ -269,4 +232,26 @@ void GraphicsPipeline::CreateQuad() {
     indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
     vertexBuffer = std::make_unique<Buffer>(context, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
     indexBuffer = std::make_unique<Buffer>(context, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
+}
+
+void GraphicsPipeline::CreateSampler() {
+    constexpr vk::SamplerCreateInfo samplerInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eRepeat,
+        .addressModeV = vk::SamplerAddressMode::eRepeat,
+        .addressModeW = vk::SamplerAddressMode::eRepeat,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = vk::False,
+        .maxAnisotropy = 1.0f,
+        .compareEnable = vk::False,
+        .compareOp = vk::CompareOp::eAlways,
+        .minLod = 0.0f,
+        .maxLod = vk::LodClampNone,
+        .borderColor = vk::BorderColor::eIntOpaqueBlack,
+        .unnormalizedCoordinates = vk::False,
+    };
+
+    sampler = context->device.createSamplerUnique(samplerInfo);
 }

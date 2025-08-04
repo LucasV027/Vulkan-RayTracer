@@ -22,6 +22,15 @@ vk::DescriptorSetLayout DescriptorSetLayoutBuilder::Build(const vk::Device devic
     return device.createDescriptorSetLayout(createInfo);
 }
 
+void DescriptorSetLayoutBuilder::AddTo(const vk::Device device, std::vector<vk::DescriptorSetLayout>& layouts) {
+    const vk::DescriptorSetLayoutCreateInfo createInfo{
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()
+    };
+
+    layouts.emplace_back(device.createDescriptorSetLayout(createInfo));
+}
+
 void DescriptorSetLayoutBuilder::Clear() { bindings.clear(); }
 
 DescriptorSetWriter& DescriptorSetWriter::WriteBuffer(const uint32_t binding,

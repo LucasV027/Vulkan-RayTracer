@@ -1,25 +1,27 @@
 #pragma once
 
+#include <vector>
+
 #include "Vulkan.h"
 #include "VulkanContext.h"
 
 class Pipeline {
 public:
-    explicit Pipeline(const std::shared_ptr<VulkanContext>& context) : context(context) {}
-
-    virtual ~Pipeline() {
-        if (context && context->device) {
-            if (pipeline) context->device.destroyPipeline(pipeline);
-            if (pipelineLayout) context->device.destroyPipelineLayout(pipelineLayout);
-        }
-    };
+    explicit Pipeline(const std::shared_ptr<VulkanContext>& context);
+    virtual ~Pipeline();
 
     virtual void Record(vk::CommandBuffer cb) const = 0;
+
+protected:
+    virtual void CreatePipelineLayout();
+
+    std::vector<vk::DescriptorSet> AllocateDescriptorSets();
 
 protected:
     std::shared_ptr<VulkanContext> context;
 
     vk::Pipeline pipeline;
     vk::PipelineLayout pipelineLayout;
+    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
 };
 

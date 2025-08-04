@@ -10,6 +10,7 @@ public:
                                            uint32_t count = 1);
 
     vk::DescriptorSetLayout Build(vk::Device device);
+    void AddTo(vk::Device device, std::vector<vk::DescriptorSetLayout>& layouts);
 
     void Clear();
 
