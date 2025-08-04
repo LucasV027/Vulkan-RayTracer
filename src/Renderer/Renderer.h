@@ -36,6 +36,9 @@ private:
     std::shared_ptr<VulkanContext> context;
     std::shared_ptr<Window> window;
     std::shared_ptr<Swapchain> swapchain;
+
+    std::shared_ptr<Image> resultImage;
+
     std::unique_ptr<ComputePipeline> computePipeline;
     std::unique_ptr<GraphicsPipeline> graphicsPipeline;
     std::unique_ptr<ImGuiPipeline> uiPipeline;

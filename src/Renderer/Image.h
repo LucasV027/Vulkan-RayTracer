@@ -16,9 +16,9 @@ public:
 
     ~Image();
 
-    vk::ImageView CreateView(vk::ImageAspectFlags aspectFlags = vk::ImageAspectFlagBits::eColor,
-                             uint32_t mipLevel = 0,
-                             uint32_t levelCount = 1) const;
+    vk::UniqueImageView CreateView(vk::ImageAspectFlags aspectFlags = vk::ImageAspectFlagBits::eColor,
+                                   uint32_t mipLevel = 0,
+                                   uint32_t levelCount = 1) const;
 
     void TransitionLayout(vk::CommandBuffer cmd,
                           vk::ImageLayout oldLayout,

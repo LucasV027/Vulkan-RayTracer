@@ -8,12 +8,11 @@
 
 class ComputePipeline final : public Pipeline {
 public:
-    explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
+    explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context,
+                             const std::shared_ptr<Image>& resultImage);
     ~ComputePipeline() override;
 
     void Record(vk::CommandBuffer cb) const override;
-
-    vk::ImageView GetView() const { return resultImageView; }
 
 private:
     void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
@@ -26,7 +25,8 @@ private:
 
     std::unique_ptr<Buffer> uniformBuffer;
     std::unique_ptr<Image> accumulationImage;
-    vk::ImageView accumulationImageView;
-    std::unique_ptr<Image> resultImage;
-    vk::ImageView resultImageView;
+    vk::UniqueImageView accumulationImageView;
+
+    std::shared_ptr<Image> resultImage;
+    vk::UniqueImageView resultImageView;
 };

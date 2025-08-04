@@ -4,10 +4,12 @@
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                                    const std::shared_ptr<Swapchain>& swapchain,
-                                   const vk::ImageView resultImageView) :
+                                   const std::shared_ptr<Image>& resultImage) :
     Pipeline(context),
     swapchain(swapchain),
-    imageView(resultImageView) {
+    resultImage(resultImage),
+    resultImageView(resultImage->CreateView()) {
+
     CreateSampler();
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
@@ -84,7 +86,7 @@ void GraphicsPipeline::CreateDescriptorSet() {
     descriptorSet = AllocateDescriptorSets()[0];
 
     DescriptorSetWriter writer;
-    writer.WriteCombinedImageSampler(0, sampler.get(), imageView, vk::ImageLayout::eShaderReadOnlyOptimal)
+    writer.WriteCombinedImageSampler(0, sampler.get(), resultImageView.get(), vk::ImageLayout::eShaderReadOnlyOptimal)
           .Update(context->device, descriptorSet);
 }
 
@@ -229,6 +231,7 @@ void GraphicsPipeline::CreateQuad() {
     };
 
     static const std::vector<uint32_t> QUAD_INDICES = {0, 1, 2, 2, 3, 0};
+
     indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
     vertexBuffer = std::make_unique<Buffer>(context, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
     indexBuffer = std::make_unique<Buffer>(context, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);

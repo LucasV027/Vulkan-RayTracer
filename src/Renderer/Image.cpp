@@ -46,9 +46,9 @@ Image::~Image() {
     if (memory) context->device.freeMemory(memory);
 }
 
-vk::ImageView Image::CreateView(const vk::ImageAspectFlags aspectFlags,
-                                const uint32_t mipLevel,
-                                const uint32_t levelCount) const {
+vk::UniqueImageView Image::CreateView(const vk::ImageAspectFlags aspectFlags,
+                                      const uint32_t mipLevel,
+                                      const uint32_t levelCount) const {
     const vk::ImageViewCreateInfo viewInfo{
         .image = image,
         .viewType = vk::ImageViewType::e2D,
@@ -62,7 +62,7 @@ vk::ImageView Image::CreateView(const vk::ImageAspectFlags aspectFlags,
         }
     };
 
-    return context->device.createImageView(viewInfo);
+    return context->device.createImageViewUnique(viewInfo);
 }
 
 void Image::TransitionLayout(const vk::CommandBuffer cmd,

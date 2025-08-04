@@ -2,16 +2,17 @@
 
 #include "DescriptorSet.h"
 
-ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) : Pipeline(context) {
+ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
+                                 const std::shared_ptr<Image>& resultImage) :
+    Pipeline(context),
+    resultImage(resultImage),
+    resultImageView(resultImage->CreateView()) {
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
 }
 
-ComputePipeline::~ComputePipeline() {
-    if (accumulationImageView) context->device.destroyImageView(accumulationImageView);
-    if (resultImageView) context->device.destroyImageView(resultImageView);
-}
+ComputePipeline::~ComputePipeline() {}
 
 void ComputePipeline::Record(const vk::CommandBuffer cb) const {
     Dispatch(cb, (800 + 15) / 16, 600, 1);
@@ -25,16 +26,13 @@ void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
                                         vk::ImageLayout::eUndefined,
                                         vk::ImageLayout::eGeneral,
                                         vk::PipelineStageFlagBits2::eTopOfPipe,
-                                        vk::PipelineStageFlagBits2::eComputeShader
-    );
-
+                                        vk::PipelineStageFlagBits2::eComputeShader);
 
     resultImage->TransitionLayout(cmd,
                                   vk::ImageLayout::eUndefined,
                                   vk::ImageLayout::eGeneral,
                                   vk::PipelineStageFlagBits2::eTopOfPipe,
-                                  vk::PipelineStageFlagBits2::eComputeShader
-    );
+                                  vk::PipelineStageFlagBits2::eComputeShader);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet, {});
@@ -66,14 +64,11 @@ void ComputePipeline::CreateDescriptorSet() {
 
     accumulationImage = std::make_unique<Image>(context, 800, 600, vk::Format::eR32G32B32A32Sfloat, usage);
     accumulationImageView = accumulationImage->CreateView();
-    resultImage = std::make_unique<Image>(context, 800, 600, vk::Format::eR32G32B32A32Sfloat, usage);
-    resultImageView = resultImage->CreateView();
-
 
     DescriptorSetWriter writer;
     writer.WriteBuffer(0, uniformBuffer->GetHandle(), uniformBuffer->GetSize())
-          .WriteStorageImage(1, accumulationImageView)
-          .WriteStorageImage(2, resultImageView)
+          .WriteStorageImage(1, accumulationImageView.get())
+          .WriteStorageImage(2, resultImageView.get())
           .Update(context->device, descriptorSet);
 }
 

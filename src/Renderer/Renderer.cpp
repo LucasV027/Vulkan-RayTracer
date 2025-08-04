@@ -10,8 +10,12 @@ Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
     context(context),
     window(window) {
     swapchain = std::make_shared<Swapchain>(context, window);
-    computePipeline = std::make_unique<ComputePipeline>(context);
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, computePipeline->GetView());
+
+    resultImage = std::make_shared<Image>(context, 800, 600, vk::Format::eR32G32B32A32Sfloat,
+                                          vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled);
+
+    computePipeline = std::make_unique<ComputePipeline>(context, resultImage);
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, resultImage);
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
 

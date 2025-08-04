@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Buffer.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include "Swapchain.h"
 #include "VulkanContext.h"
@@ -16,7 +17,7 @@ class GraphicsPipeline final : public Pipeline {
 public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                      const std::shared_ptr<Swapchain>& swapchain,
-                     vk::ImageView resultImageView);
+                     const std::shared_ptr<Image>& resultImage);
 
     ~GraphicsPipeline() override;
 
@@ -33,7 +34,8 @@ private:
 
     vk::DescriptorSet descriptorSet;
 
-    vk::ImageView imageView;
+    std::shared_ptr<Image> resultImage;
+    vk::UniqueImageView resultImageView;
     vk::UniqueSampler sampler;
 
     std::unique_ptr<Buffer> vertexBuffer;
