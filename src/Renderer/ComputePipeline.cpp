@@ -1,6 +1,6 @@
 #include "ComputePipeline.h"
 
-#include "DescriptorSet.h"
+#include "Generic/DescriptorSet.h"
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
                                  const std::shared_ptr<RaytracingContext>& rtContext) :

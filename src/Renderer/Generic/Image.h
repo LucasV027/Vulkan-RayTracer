@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Vulkan.h"
-#include "VulkanContext.h"
+#include "Renderer/VulkanContext.h"
 
 class Image {
 public:

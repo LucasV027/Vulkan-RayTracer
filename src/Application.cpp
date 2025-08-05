@@ -5,9 +5,9 @@
 #include "Utils.h"
 #include "Log.h"
 
-Application::Application() {
+Application::Application(std::string title, uint32_t width, uint32_t height) {
     try {
-        window = std::make_shared<Window>(width, height, appName);
+        window = std::make_shared<Window>(width, height, title);
         vulkanContext = std::make_shared<VulkanContext>(window);
         rtContext = std::make_shared<RaytracingContext>(vulkanContext, RaytracingContext::Config{
                                                             .width = width,
@@ -27,6 +27,7 @@ void Application::Run() const {
         ImGui::Begin("[INFO]");
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
         ImGui::Text("Frame index: %d", rtContext->GetFrameIndex());
+        auto [width, height] = window->GetSize();
         ImGui::Text("Window size: (%d, %d)", width, height);
         ImGui::End();
         renderer->Draw();

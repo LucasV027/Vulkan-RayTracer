@@ -9,14 +9,12 @@
 
 class Application {
 public:
-    Application();
+    Application(std::string title, uint32_t width, uint32_t height);
     void Run() const;
     ~Application();
 
 private:
-    std::string appName = "Vulkan-RayTracer";
-    uint32_t width = 800;
-    uint32_t height = 600;
+
 
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;

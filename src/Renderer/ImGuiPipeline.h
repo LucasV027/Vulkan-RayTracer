@@ -2,8 +2,8 @@
 
 #include <memory>
 
-#include "Pipeline.h"
-#include "Swapchain.h"
+#include "Generic/Pipeline.h"
+#include "Generic/Swapchain.h"
 #include "VulkanContext.h"
 
 class ImGuiPipeline final : public Pipeline {

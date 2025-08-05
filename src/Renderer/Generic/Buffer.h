@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Vulkan.h"
-#include "VulkanContext.h"
+#include "Renderer/VulkanContext.h"
 
 class Buffer {
 public:
@@ -16,12 +16,9 @@ public:
     Buffer(const std::shared_ptr<VulkanContext>& context,
            const std::vector<T>& data,
            const vk::BufferUsageFlags usage,
-           const vk::MemoryPropertyFlags properties =
-               vk::MemoryPropertyFlagBits::eHostVisible |
-               vk::MemoryPropertyFlagBits::eHostCoherent) : Buffer(context,
-                                                                   sizeof(T) * data.size(),
-                                                                   usage,
-                                                                   properties) {
+           const vk::MemoryPropertyFlags properties = vk::MemoryPropertyFlagBits::eHostVisible |
+               vk::MemoryPropertyFlagBits::eHostCoherent)
+        : Buffer(context, sizeof(T) * data.size(), usage, properties) {
         Update(data);
     }
 

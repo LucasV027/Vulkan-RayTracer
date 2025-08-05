@@ -2,10 +2,10 @@
 
 #include <memory>
 
-#include "Buffer.h"
-#include "Image.h"
-#include "Pipeline.h"
-#include "Swapchain.h"
+#include "Generic/Buffer.h"
+#include "Generic/Image.h"
+#include "Generic/Pipeline.h"
+#include "Generic/Swapchain.h"
 #include "VulkanContext.h"
 #include "Core/RaytracingContext.h"
 

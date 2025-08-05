@@ -2,10 +2,10 @@
 
 #include <cstdint>
 
-#include "Renderer/Vulkan.h"
 #include "Renderer/VulkanContext.h"
-#include "Renderer/Image.h"
-#include "Renderer/Buffer.h"
+#include "Renderer/Generic/Vulkan.h"
+#include "Renderer/Generic/Image.h"
+#include "Renderer/Generic/Buffer.h"
 
 class RaytracingContext {
 public:

@@ -7,13 +7,13 @@ add_executable(${PROJECT_NAME}
         src/main.cpp
         src/Application.cpp
         src/Application.h
-        src/Renderer/Vulkan.cpp
-        src/Renderer/Vulkan.h
         src/Log.h
         src/Utils.h
         src/Utils.cpp
         src/Window.cpp
         src/Window.h
+        src/Renderer/Generic/Vulkan.cpp
+        src/Renderer/Generic/Vulkan.h
         src/Renderer/Renderer.cpp
         src/Renderer/Renderer.h
         src/Renderer/ComputePipeline.cpp
@@ -24,17 +24,17 @@ add_executable(${PROJECT_NAME}
         src/Renderer/GraphicsPipeline.h
         src/Renderer/ImGuiPipeline.cpp
         src/Renderer/ImGuiPipeline.h
-        src/Renderer/SwapChain.cpp
-        src/Renderer/SwapChain.h
-        src/Renderer/Pipeline.h
-        src/Renderer/DescriptorSet.h
-        src/Renderer/DescriptorSet.cpp
-        src/Renderer/DescriptorSet.h
-        src/Renderer/Buffer.cpp
-        src/Renderer/Buffer.h
-        src/Renderer/Image.cpp
-        src/Renderer/Image.h
-        src/Renderer/Pipeline.cpp
+        src/Renderer/Generic/Swapchain.cpp
+        src/Renderer/Generic/Swapchain.h
+        src/Renderer/Generic/Pipeline.h
+        src/Renderer/Generic/DescriptorSet.h
+        src/Renderer/Generic/DescriptorSet.cpp
+        src/Renderer/Generic/DescriptorSet.h
+        src/Renderer/Generic/Buffer.cpp
+        src/Renderer/Generic/Buffer.h
+        src/Renderer/Generic/Image.cpp
+        src/Renderer/Generic/Image.h
+        src/Renderer/Generic/Pipeline.cpp
         src/Core/RaytracingContext.cpp
         src/Core/RaytracingContext.h
 )

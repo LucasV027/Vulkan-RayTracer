@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Window.h"
-#include "Vulkan.h"
+#include "Generic/Vulkan.h"
 
 class VulkanContext {
 public:

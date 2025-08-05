@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Pipeline.h"
-#include "Vulkan.h"
+#include "Generic/Pipeline.h"
+#include "Generic/Vulkan.h"
 #include "VulkanContext.h"
 #include "Core/RaytracingContext.h"
 
