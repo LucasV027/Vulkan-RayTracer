@@ -22,6 +22,16 @@ public:
         Update(data);
     }
 
+    template <typename T>
+    Buffer(const std::shared_ptr<VulkanContext>& context,
+           const T& data,
+           const vk::BufferUsageFlags usage,
+           const vk::MemoryPropertyFlags properties = vk::MemoryPropertyFlagBits::eHostVisible |
+               vk::MemoryPropertyFlagBits::eHostCoherent)
+        : Buffer(context, sizeof(T), usage, properties) {
+        Update(data);
+    }
+
     ~Buffer();
 
     template <typename T>

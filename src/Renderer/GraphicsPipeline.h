@@ -7,7 +7,7 @@
 #include "Generic/Pipeline.h"
 #include "Generic/Swapchain.h"
 #include "VulkanContext.h"
-#include "Core/RaytracingContext.h"
+#include "Raytracer/Context.h"
 
 struct Vertex {
     float pos[3];
@@ -18,7 +18,7 @@ class GraphicsPipeline final : public Pipeline {
 public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                      const std::shared_ptr<Swapchain>& swapchain,
-                     const std::shared_ptr<RaytracingContext>& rtContext);
+                     const std::shared_ptr<Raytracer::Context>& rtContext);
 
     ~GraphicsPipeline() override = default;
 
@@ -34,7 +34,7 @@ private:
 
 private:
     std::shared_ptr<Swapchain> swapchain;
-    std::shared_ptr<RaytracingContext> rtContext;
+    std::shared_ptr<Raytracer::Context> rtContext;
 
     vk::UniqueDescriptorSet descriptorSet;
 

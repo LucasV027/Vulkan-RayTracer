@@ -9,10 +9,10 @@ Application::Application(std::string title, uint32_t width, uint32_t height) {
     try {
         window = std::make_shared<Window>(width, height, title);
         vulkanContext = std::make_shared<VulkanContext>(window);
-        rtContext = std::make_shared<RaytracingContext>(vulkanContext, RaytracingContext::Config{
-                                                            .width = width,
-                                                            .height = height
-                                                        });
+        rtContext = std::make_shared<Raytracer::Context>(vulkanContext, Raytracer::Context::Config{
+                                                             .width = width,
+                                                             .height = height
+                                                         });
         renderer = std::make_unique<Renderer>(window, vulkanContext, rtContext);
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());

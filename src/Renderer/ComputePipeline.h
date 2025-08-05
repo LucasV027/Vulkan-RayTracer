@@ -3,12 +3,12 @@
 #include "Generic/Pipeline.h"
 #include "Generic/Vulkan.h"
 #include "VulkanContext.h"
-#include "Core/RaytracingContext.h"
+#include "Raytracer/Context.h"
 
 class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                             const std::shared_ptr<RaytracingContext>& rtContext);
+                             const std::shared_ptr<Raytracer::Context>& rtContext);
     ~ComputePipeline() override = default;
 
     void Record(vk::CommandBuffer cb) const override;
@@ -27,5 +27,5 @@ private:
 
     vk::UniqueDescriptorSet descriptorSet;
 
-    std::shared_ptr<RaytracingContext> rtContext;
+    std::shared_ptr<Raytracer::Context> rtContext;
 };

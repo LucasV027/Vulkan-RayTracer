@@ -14,10 +14,8 @@ public:
     ~Application();
 
 private:
-
-
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;
-    std::shared_ptr<RaytracingContext> rtContext;
+    std::shared_ptr<Raytracer::Context> rtContext;
     std::shared_ptr<Renderer> renderer;
 };

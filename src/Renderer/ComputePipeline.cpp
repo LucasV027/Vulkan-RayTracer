@@ -3,7 +3,7 @@
 #include "Generic/DescriptorSet.h"
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                                 const std::shared_ptr<RaytracingContext>& rtContext) :
+                                 const std::shared_ptr<Raytracer::Context>& rtContext) :
     Pipeline(context),
     rtContext(rtContext) {
     CreateDescriptorSetLayout();

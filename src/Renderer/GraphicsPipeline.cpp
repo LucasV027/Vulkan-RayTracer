@@ -4,7 +4,7 @@
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                                    const std::shared_ptr<Swapchain>& swapchain,
-                                   const std::shared_ptr<RaytracingContext>& rtContext) :
+                                   const std::shared_ptr<Raytracer::Context>& rtContext) :
     Pipeline(context),
     swapchain(swapchain),
     rtContext(rtContext) {

@@ -7,7 +7,7 @@
 
 Renderer::Renderer(const std::shared_ptr<Window>& window,
                    const std::shared_ptr<VulkanContext>& context,
-                   const std::shared_ptr<RaytracingContext>& rtContext) :
+                   const std::shared_ptr<Raytracer::Context>& rtContext) :
     window(window),
     vulkanContext(context),
     rtContext(rtContext) {

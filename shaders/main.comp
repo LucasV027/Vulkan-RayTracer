@@ -2,15 +2,98 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (set = 0, binding = 0) uniform Params {
+layout (std140, set = 0, binding = 0) uniform uniformParameters {
     uint frameIndex;
-} ubo;
+    float fov;
+    vec3 cameraPosition;
+    vec3 cameraForward;
+    vec3 cameraRight;
+    vec3 cameraUp;
+};
 
 layout (set = 0, binding = 1, rgba32f) uniform readonly image2D accumulationImage;
 layout (set = 0, binding = 2, rgba32f) uniform writeonly image2D resultImage;
 
+struct Ray {
+    vec3 ori;
+    vec3 dir;
+};
+
+struct Sphere {
+    vec3 pos;
+    float rad;
+};
+
+struct HitInfo {
+    bool didCollide;
+    float dst;
+    vec3 hitPoint;
+    vec3 normal;
+};
+
+HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
+{
+    HitInfo hitInfo;
+    hitInfo.didCollide = false;
+
+    vec3 offsetRayOrigin = ray.ori - sphere.pos;
+    float a = dot(ray.dir, ray.dir);
+    float b = 2.0 * dot(offsetRayOrigin, ray.dir);
+    float c = dot(offsetRayOrigin, offsetRayOrigin) - sphere.rad * sphere.rad;
+    float discriminant = b * b - 4.0 * a * c;
+
+    if (discriminant >= 0.0) {
+        float dst = (-b - sqrt(discriminant)) / (2.0 * a);
+        if (dst >= 0.0) {
+            hitInfo.didCollide = true;
+            hitInfo.dst = dst;
+            hitInfo.hitPoint = ray.ori + dst * ray.dir;
+            hitInfo.normal = normalize(hitInfo.hitPoint - sphere.pos);
+        }
+    }
+    return hitInfo;
+}
+
+Ray GenerateRay(ivec2 pixelCoord) {
+    ivec2 size = imageSize(resultImage);
+    vec2 uv = (vec2(pixelCoord) + 0.5) / size;
+    vec2 screen = uv * 2.0 - 1.0;
+    screen.x *= size.x / size.y;
+
+    float focalLength = 1.0 / tan(fov * 0.5);
+    vec3 rayDir = normalize(
+        screen.x * cameraRight +
+        screen.y * cameraUp +
+        focalLength * cameraForward
+    );
+
+    Ray ray;
+    ray.ori = cameraPosition;
+    ray.dir = rayDir;
+    return ray;
+}
+
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    vec4 color = vec4(1.0, 0.0, 0.0, 1.0);
+    ivec2 size = imageSize(resultImage);
+    if (coord.x >= size.x || coord.y >= size.y) {
+        return;
+    }
+
+    Ray ray = GenerateRay(coord);
+
+    Sphere sphere;
+    sphere.pos = vec3(0.0, 0.0, -5.0);
+    sphere.rad = 2.0;
+
+    HitInfo hit = RaySphereIntersection(ray, sphere);
+
+    vec4 color;
+    if (hit.didCollide) {
+        color = vec4(1.0, 0.2, 0.2, 1.0);
+    } else {
+        color = vec4(0.1, 0.2, 0.5, 1.0);
+    }
+
     imageStore(resultImage, coord, color);
 }

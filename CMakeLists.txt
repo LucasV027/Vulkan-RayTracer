@@ -35,8 +35,10 @@ add_executable(${PROJECT_NAME}
         src/Renderer/Generic/Image.cpp
         src/Renderer/Generic/Image.h
         src/Renderer/Generic/Pipeline.cpp
-        src/Core/RaytracingContext.cpp
-        src/Core/RaytracingContext.h
+        src/Raytracer/Context.cpp
+        src/Raytracer/Context.h
+        src/Raytracer/Ressources.cpp
+        src/Raytracer/Ressources.h
 )
 
 include(Dependencies.cmake)
