@@ -39,7 +39,7 @@ public:
     Image& operator=(const Image&) = delete;
 
 private:
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
 
     vk::Image image;
     vk::DeviceMemory memory;

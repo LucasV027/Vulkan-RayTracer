@@ -41,7 +41,7 @@ private:
     void DestroyFrameContexts();
 
 private:
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Window> window;
 
     std::optional<uint32_t> currentImageIndex;

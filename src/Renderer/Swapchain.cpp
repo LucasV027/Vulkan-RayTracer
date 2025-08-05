@@ -1,7 +1,7 @@
 #include "Swapchain.h"
 
 Swapchain::Swapchain(const std::shared_ptr<VulkanContext>& context, const std::shared_ptr<Window>& window) :
-    context(context),
+    vulkanContext(context),
     window(window) {
     CreateSwapchain();
 }
@@ -10,7 +10,7 @@ Swapchain::~Swapchain() {
     DestroyImageViews();
     DestroyFrameContexts();
 
-    context->device.destroySwapchainKHR(swapchain);
+    vulkanContext->device.destroySwapchainKHR(swapchain);
 }
 
 void Swapchain::Recreate() {
@@ -36,9 +36,9 @@ void Swapchain::SetCurrentImageIndex(uint32_t index) { currentImageIndex = index
 void Swapchain::ResetCurrentImageIndex() { currentImageIndex.reset(); }
 
 void Swapchain::CreateSwapchain() {
-    const vk::SurfaceCapabilitiesKHR capabilities = context->physicalDevice.getSurfaceCapabilitiesKHR(context->surface);
-    auto formats = context->physicalDevice.getSurfaceFormatsKHR(context->surface);
-    auto presentModes = context->physicalDevice.getSurfacePresentModesKHR(context->surface);
+    const vk::SurfaceCapabilitiesKHR capabilities = vulkanContext->physicalDevice.getSurfaceCapabilitiesKHR(vulkanContext->surface);
+    auto formats = vulkanContext->physicalDevice.getSurfaceFormatsKHR(vulkanContext->surface);
+    auto presentModes = vulkanContext->physicalDevice.getSurfacePresentModesKHR(vulkanContext->surface);
 
     vk::SurfaceFormatKHR surfaceFormat = formats[0];
     for (const auto& availableFormat : formats) {
@@ -74,7 +74,7 @@ void Swapchain::CreateSwapchain() {
     const auto oldSwapchain = swapchain;
 
     const vk::SwapchainCreateInfoKHR createInfo{
-        .surface = context->surface,
+        .surface = vulkanContext->surface,
         .minImageCount = imageCount,
         .imageFormat = surfaceFormat.format,
         .imageColorSpace = surfaceFormat.colorSpace,
@@ -89,15 +89,15 @@ void Swapchain::CreateSwapchain() {
         .oldSwapchain = oldSwapchain
     };
 
-    swapchain = context->device.createSwapchainKHR(createInfo);
-    images = context->device.getSwapchainImagesKHR(swapchain);
+    swapchain = vulkanContext->device.createSwapchainKHR(createInfo);
+    images = vulkanContext->device.getSwapchainImagesKHR(swapchain);
 
     if (oldSwapchain) {
-        context->device.waitIdle();
+        vulkanContext->device.waitIdle();
 
         DestroyImageViews();
         DestroyFrameContexts();
-        context->device.destroySwapchainKHR(oldSwapchain);
+        vulkanContext->device.destroySwapchainKHR(oldSwapchain);
     }
 
     CreateImageViews();
@@ -120,7 +120,7 @@ void Swapchain::CreateImageViews() {
                 .layerCount = 1
             }
         };
-        imageViews.push_back(context->device.createImageView(viewCreateInfo));
+        imageViews.push_back(vulkanContext->device.createImageView(viewCreateInfo));
     }
 }
 
@@ -132,26 +132,26 @@ void Swapchain::CreateFrameContexts() {
     for (auto& fc : frameContexts) {
         const vk::CommandPoolCreateInfo commandPoolCreateInfo{
             .flags = vk::CommandPoolCreateFlagBits::eTransient,
-            .queueFamilyIndex = context->graphicsQueueIndex,
+            .queueFamilyIndex = vulkanContext->graphicsQueueIndex,
         };
 
-        fc.commandPool = context->device.createCommandPool(commandPoolCreateInfo);
+        fc.commandPool = vulkanContext->device.createCommandPool(commandPoolCreateInfo);
 
         vk::CommandBufferAllocateInfo commandBufferAllocateInfo{
             .commandPool = fc.commandPool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1
         };
-        fc.commandBuffer = context->device.allocateCommandBuffers(commandBufferAllocateInfo).front();
+        fc.commandBuffer = vulkanContext->device.allocateCommandBuffers(commandBufferAllocateInfo).front();
 
-        fc.inFlight = context->device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
-        fc.renderFinished = context->device.createSemaphore({});
+        fc.inFlight = vulkanContext->device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+        fc.renderFinished = vulkanContext->device.createSemaphore({});
     }
 }
 
 void Swapchain::DestroyImageViews() {
     if (!imageViews.empty()) {
-        for (const auto& imageView : imageViews) context->device.destroyImageView(imageView);
+        for (const auto& imageView : imageViews) vulkanContext->device.destroyImageView(imageView);
         imageViews.clear();
     }
 }
@@ -159,10 +159,10 @@ void Swapchain::DestroyImageViews() {
 void Swapchain::DestroyFrameContexts() {
     if (!frameContexts.empty()) {
         for (auto& fc : frameContexts) {
-            if (fc.inFlight) context->device.destroyFence(fc.inFlight);
-            if (fc.commandBuffer) context->device.freeCommandBuffers(fc.commandPool, fc.commandBuffer);
-            if (fc.commandPool) context->device.destroyCommandPool(fc.commandPool);
-            if (fc.renderFinished) context->device.destroySemaphore(fc.renderFinished);
+            if (fc.inFlight) vulkanContext->device.destroyFence(fc.inFlight);
+            if (fc.commandBuffer) vulkanContext->device.freeCommandBuffers(fc.commandPool, fc.commandBuffer);
+            if (fc.commandPool) vulkanContext->device.destroyCommandPool(fc.commandPool);
+            if (fc.renderFinished) vulkanContext->device.destroySemaphore(fc.renderFinished);
         }
         frameContexts.clear();
     }

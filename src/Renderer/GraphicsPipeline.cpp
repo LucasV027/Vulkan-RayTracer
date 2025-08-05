@@ -76,14 +76,14 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
 void GraphicsPipeline::CreateDescriptorSet() {
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
-                 .AddTo(context->device, descriptorSetLayouts);
+                 .AddTo(vulkanContext->device, descriptorSetLayouts);
 
     descriptorSet = AllocateDescriptorSets()[0];
 
     DescriptorSetWriter writer;
     writer.WriteCombinedImageSampler(0, rtContext->GetSampler(), rtContext->GetOutputImageView(),
                                      vk::ImageLayout::eShaderReadOnlyOptimal)
-          .Update(context->device, descriptorSet);
+          .Update(vulkanContext->device, descriptorSet);
 }
 
 void GraphicsPipeline::CreatePipeline() {
@@ -170,8 +170,8 @@ void GraphicsPipeline::CreatePipeline() {
         .rasterizationSamples = vk::SampleCountFlagBits::e1
     };
 
-    auto vertShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.vert.spv");
-    auto fragShaderModule = vkHelpers::CreateShaderModule(context->device, "../shaders/main.frag.spv");
+    auto vertShaderModule = vkHelpers::CreateShaderModule(vulkanContext->device, "../shaders/main.vert.spv");
+    auto fragShaderModule = vkHelpers::CreateShaderModule(vulkanContext->device, "../shaders/main.frag.spv");
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         {
@@ -214,7 +214,7 @@ void GraphicsPipeline::CreatePipeline() {
     };
 
     vk::Result result;
-    std::tie(result, pipeline) = context->device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+    std::tie(result, pipeline) = vulkanContext->device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 }
 
@@ -229,7 +229,7 @@ void GraphicsPipeline::CreateQuad() {
     static const std::vector<uint32_t> QUAD_INDICES = {0, 1, 2, 2, 3, 0};
 
     indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
-    vertexBuffer = std::make_unique<Buffer>(context, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
-    indexBuffer = std::make_unique<Buffer>(context, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
+    vertexBuffer = std::make_unique<Buffer>(vulkanContext, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
+    indexBuffer = std::make_unique<Buffer>(vulkanContext, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
 }
 

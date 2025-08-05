@@ -18,7 +18,7 @@ protected:
     std::vector<vk::DescriptorSet> AllocateDescriptorSets();
 
 protected:
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
 
     vk::Pipeline pipeline;
     vk::PipelineLayout pipelineLayout;

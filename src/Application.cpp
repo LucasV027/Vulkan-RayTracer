@@ -8,8 +8,8 @@
 Application::Application() {
     try {
         window = std::make_shared<Window>(width, height, appName);
-        context = std::make_shared<VulkanContext>(window);
-        renderer = std::make_unique<Renderer>(context, window);
+        vulkanContext = std::make_shared<VulkanContext>(window);
+        renderer = std::make_unique<Renderer>(vulkanContext, window);
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
@@ -32,5 +32,5 @@ Application::~Application() {
     // explicit order deletion
     window.reset();
     renderer.reset();
-    context.reset();
+    vulkanContext.reset();
 }

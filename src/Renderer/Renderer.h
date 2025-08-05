@@ -33,10 +33,9 @@ private:
     void Resize() const;
 
 private:
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Window> window;
     std::shared_ptr<Swapchain> swapchain;
-
     std::shared_ptr<RaytracingContext> rtContext;
 
     std::unique_ptr<ComputePipeline> computePipeline;

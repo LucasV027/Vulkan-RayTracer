@@ -19,6 +19,6 @@ private:
     uint32_t height = 600;
 
     std::shared_ptr<Window> window;
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Renderer> renderer;
 };

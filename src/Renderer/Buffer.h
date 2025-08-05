@@ -51,7 +51,7 @@ private:
     void Update(const void* data, vk::DeviceSize size) const;
 
 private:
-    std::shared_ptr<VulkanContext> context;
+    std::shared_ptr<VulkanContext> vulkanContext;
 
     vk::Buffer buffer;
     vk::DeviceSize bufferSize;

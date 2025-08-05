@@ -8,7 +8,7 @@ Image::Image(const std::shared_ptr<VulkanContext>& context,
              const vk::MemoryPropertyFlags properties,
              const vk::ImageTiling tiling,
              const uint32_t mipLevels)
-    : context(context),
+    : vulkanContext(context),
       width(width),
       height(height),
       format(format),
@@ -42,8 +42,8 @@ Image::Image(const std::shared_ptr<VulkanContext>& context,
 }
 
 Image::~Image() {
-    if (image) context->device.destroyImage(image);
-    if (memory) context->device.freeMemory(memory);
+    if (image) vulkanContext->device.destroyImage(image);
+    if (memory) vulkanContext->device.freeMemory(memory);
 }
 
 vk::UniqueImageView Image::CreateView(const vk::ImageAspectFlags aspectFlags,
@@ -62,7 +62,7 @@ vk::UniqueImageView Image::CreateView(const vk::ImageAspectFlags aspectFlags,
         }
     };
 
-    return context->device.createImageViewUnique(viewInfo);
+    return vulkanContext->device.createImageViewUnique(viewInfo);
 }
 
 void Image::TransitionLayout(const vk::CommandBuffer cmd,
@@ -112,7 +112,7 @@ void Image::TransitionLayout(const vk::CommandBuffer cmd,
     cmd.pipelineBarrier2(dependencyInfo);
 }
 
-Image::Image(Image&& other) noexcept : context(std::move(other.context)),
+Image::Image(Image&& other) noexcept : vulkanContext(std::move(other.vulkanContext)),
                                        image(std::exchange(other.image, vk::Image{})),
                                        memory(std::exchange(other.memory, vk::DeviceMemory{})),
                                        width(other.width),
@@ -122,10 +122,10 @@ Image::Image(Image&& other) noexcept : context(std::move(other.context)),
 
 Image& Image::operator=(Image&& other) noexcept {
     if (this != &other) {
-        if (image) context->device.destroyImage(image);
-        if (memory) context->device.freeMemory(memory);
+        if (image) vulkanContext->device.destroyImage(image);
+        if (memory) vulkanContext->device.freeMemory(memory);
 
-        context = std::move(other.context);
+        vulkanContext = std::move(other.vulkanContext);
         image = std::exchange(other.image, vk::Image{});
         memory = std::exchange(other.memory, vk::DeviceMemory{});
         width = other.width;

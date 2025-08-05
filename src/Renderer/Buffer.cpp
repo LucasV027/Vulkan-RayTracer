@@ -5,7 +5,7 @@
 Buffer::Buffer(const std::shared_ptr<VulkanContext>& context,
                const vk::DeviceSize size,
                const vk::BufferUsageFlags usage,
-               const vk::MemoryPropertyFlags properties) : context(context), bufferSize(size) {
+               const vk::MemoryPropertyFlags properties) : vulkanContext(context), bufferSize(size) {
     const vk::BufferCreateInfo bufferInfo{
         .size = size,
         .usage = usage,
@@ -27,21 +27,21 @@ Buffer::Buffer(const std::shared_ptr<VulkanContext>& context,
 }
 
 Buffer::~Buffer() {
-    if (buffer) context->device.destroyBuffer(buffer);
-    if (memory) context->device.freeMemory(memory);
+    if (buffer) vulkanContext->device.destroyBuffer(buffer);
+    if (memory) vulkanContext->device.freeMemory(memory);
 }
 
-Buffer::Buffer(Buffer&& other) noexcept : context(std::move(other.context)),
+Buffer::Buffer(Buffer&& other) noexcept : vulkanContext(std::move(other.vulkanContext)),
                                           buffer(std::exchange(other.buffer, vk::Buffer{})),
                                           bufferSize(other.bufferSize),
                                           memory(std::exchange(other.memory, vk::DeviceMemory{})) {}
 
 Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
-        if (buffer) context->device.destroyBuffer(buffer);
-        if (memory) context->device.freeMemory(memory);
+        if (buffer) vulkanContext->device.destroyBuffer(buffer);
+        if (memory) vulkanContext->device.freeMemory(memory);
 
-        context = std::move(other.context);
+        vulkanContext = std::move(other.vulkanContext);
         buffer = std::exchange(other.buffer, vk::Buffer{});
         memory = std::exchange(other.memory, vk::DeviceMemory{});
         bufferSize = other.bufferSize;
@@ -56,11 +56,11 @@ void Buffer::Update(const void* data, const vk::DeviceSize size) const {
     }
 
     void* mapped;
-    const vk::Result result = context->device.mapMemory(memory, 0, size, {}, &mapped);
+    const vk::Result result = vulkanContext->device.mapMemory(memory, 0, size, {}, &mapped);
 
     if (result == vk::Result::eSuccess) {
         memcpy(mapped, data, size);
-        context->device.unmapMemory(memory);
+        vulkanContext->device.unmapMemory(memory);
     } else {
         LOGE("Failed to map memory! Error: {}", vk::to_string(result));
     }

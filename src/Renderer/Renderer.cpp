@@ -7,7 +7,7 @@
 
 Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
                    const std::shared_ptr<Window>& window) :
-    context(context),
+    vulkanContext(context),
     window(window) {
     swapchain = std::make_shared<Swapchain>(context, window);
 
@@ -25,7 +25,7 @@ Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
 }
 
 Renderer::~Renderer() {
-    if (context->device) context->device.waitIdle();
+    if (vulkanContext->device) vulkanContext->device.waitIdle();
 }
 
 void Renderer::Draw() const {
@@ -50,7 +50,7 @@ void Renderer::Begin() const {
 FrameContext* Renderer::BeginFrame() const {
     const auto result = AcquireNextImage();
     if (!result) {
-        if (result.error() == AcquireError::Failed) context->device.waitIdle();
+        if (result.error() == AcquireError::Failed) vulkanContext->device.waitIdle();
         else Resize();
         swapchain->ResetCurrentImageIndex();
         return nullptr;
@@ -58,7 +58,7 @@ FrameContext* Renderer::BeginFrame() const {
 
     FrameContext* fc = *result;
 
-    context->device.resetCommandPool(fc->commandPool);
+    vulkanContext->device.resetCommandPool(fc->commandPool);
 
     fc->commandBuffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
@@ -103,7 +103,7 @@ void Renderer::Submit(const FrameContext& fc) const {
         .pSignalSemaphores = &fc.renderFinished
     };
 
-    context->graphicsQueue.submit(submitInfo, fc.inFlight);
+    vulkanContext->graphicsQueue.submit(submitInfo, fc.inFlight);
 }
 
 void Renderer::Present(const FrameContext& fc) const {
@@ -117,7 +117,7 @@ void Renderer::Present(const FrameContext& fc) const {
     };
 
     try {
-        const auto result = context->graphicsQueue.presentKHR(presentInfo);
+        const auto result = vulkanContext->graphicsQueue.presentKHR(presentInfo);
         if (result == vk::Result::eSuboptimalKHR) {
             Resize();
         }
@@ -127,13 +127,13 @@ void Renderer::Present(const FrameContext& fc) const {
 }
 
 std::expected<FrameContext*, Renderer::AcquireError> Renderer::AcquireNextImage() const {
-    auto acquireSemaphore = context->device.createSemaphoreUnique({});
+    auto acquireSemaphore = vulkanContext->device.createSemaphoreUnique({});
 
     uint32_t imageIndex;
     vk::Result result;
 
     try {
-        std::tie(result, imageIndex) = context->device.acquireNextImageKHR(
+        std::tie(result, imageIndex) = vulkanContext->device.acquireNextImageKHR(
             swapchain->GetSwapchain(), UINT64_MAX, acquireSemaphore.get());
     } catch (vk::OutOfDateKHRError&) {
         return std::unexpected(AcquireError::OutOfDate);
@@ -146,9 +146,9 @@ std::expected<FrameContext*, Renderer::AcquireError> Renderer::AcquireNextImage(
     auto& frame = swapchain->GetCurrentFrameContext();
 
     if (frame.inFlight) {
-        const auto waitResult = context->device.waitForFences(frame.inFlight, true, UINT64_MAX);
+        const auto waitResult = vulkanContext->device.waitForFences(frame.inFlight, true, UINT64_MAX);
         assert(waitResult == vk::Result::eSuccess);
-        context->device.resetFences(frame.inFlight);
+        vulkanContext->device.resetFences(frame.inFlight);
     }
 
     frame.imageAvailable = std::move(acquireSemaphore);
@@ -163,9 +163,9 @@ void Renderer::Resize() const {
         glfwWaitEvents();
     }
 
-    context->device.waitIdle();
+    vulkanContext->device.waitIdle();
 
-    const auto surfaceProperties = context->physicalDevice.getSurfaceCapabilitiesKHR(context->surface);
+    const auto surfaceProperties = vulkanContext->physicalDevice.getSurfaceCapabilitiesKHR(vulkanContext->surface);
 
     auto [currentWidth, currentHeight] = swapchain->GetExtent();
     const bool dimensionsChanged =
