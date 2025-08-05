@@ -26,18 +26,21 @@ void ComputePipeline::CreateDescriptorSet() {
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
+                 .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
 
     descriptorSet = AllocateDescriptorSets()[0];
 
     DescriptorSetWriter writer;
     writer.WriteBuffer(0, rtContext->GetSceneBuffer()->GetHandle(), rtContext->GetSceneBuffer()->GetSize())
-          .WriteStorageImage(1, rtContext->GetOutputImageView())
+          .WriteStorageImage(1, rtContext->GetAccumulationImageView())
+          .WriteStorageImage(2, rtContext->GetOutputImageView())
           .Update(vulkanContext->device, descriptorSet);
 }
 
 void ComputePipeline::CreatePipeline() {
-    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(vulkanContext->device, "../shaders/main.comp.spv");
+    vk::UniqueShaderModule shaderModule = vkHelpers::CreateShaderModule(
+        vulkanContext->device, "../shaders/main.comp.spv");
 
     const vk::PipelineShaderStageCreateInfo shaderStageInfo{
         .stage = vk::ShaderStageFlagBits::eCompute,

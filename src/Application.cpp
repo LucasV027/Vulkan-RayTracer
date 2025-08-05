@@ -9,7 +9,11 @@ Application::Application() {
     try {
         window = std::make_shared<Window>(width, height, appName);
         vulkanContext = std::make_shared<VulkanContext>(window);
-        renderer = std::make_unique<Renderer>(vulkanContext, window);
+        rtContext = std::make_shared<RaytracingContext>(vulkanContext, RaytracingContext::Config{
+                                                            .width = width,
+                                                            .height = height
+                                                        });
+        renderer = std::make_unique<Renderer>(window, vulkanContext, rtContext);
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
@@ -22,15 +26,18 @@ void Application::Run() const {
         renderer->Begin();
         ImGui::Begin("[INFO]");
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+        ImGui::Text("Frame index: %d", rtContext->GetFrameIndex());
         ImGui::Text("Window size: (%d, %d)", width, height);
         ImGui::End();
         renderer->Draw();
+        rtContext->Update();
     }
 }
 
 Application::~Application() {
     // explicit order deletion
     window.reset();
+    rtContext.reset();
     renderer.reset();
     vulkanContext.reset();
 }
