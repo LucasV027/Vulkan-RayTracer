@@ -37,7 +37,7 @@ private:
     std::shared_ptr<Window> window;
     std::shared_ptr<Swapchain> swapchain;
 
-    std::shared_ptr<Image> resultImage;
+    std::shared_ptr<RaytracingContext> rtContext;
 
     std::unique_ptr<ComputePipeline> computePipeline;
     std::unique_ptr<GraphicsPipeline> graphicsPipeline;

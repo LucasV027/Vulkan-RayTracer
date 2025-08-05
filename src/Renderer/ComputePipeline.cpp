@@ -3,46 +3,22 @@
 #include "DescriptorSet.h"
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                                 const std::shared_ptr<Image>& resultImage) :
+                                 const std::shared_ptr<RaytracingContext>& rtContext) :
     Pipeline(context),
-    resultImage(resultImage),
-    resultImageView(resultImage->CreateView()) {
+    rtContext(rtContext) {
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
 }
 
-ComputePipeline::~ComputePipeline() {}
-
 void ComputePipeline::Record(const vk::CommandBuffer cb) const {
-    Dispatch(cb, (800 + 15) / 16, 600, 1);
-}
+    const auto gcX = (rtContext->GetWidth() + workgroupSizeX - 1) / workgroupSizeX;
+    const auto gcY = (rtContext->GetHeight() + workgroupSizeY - 1) / workgroupSizeY;
+    constexpr auto gcZ = (1 + workgroupSizeZ - 1) / workgroupSizeZ;
 
-void ComputePipeline::Dispatch(const vk::CommandBuffer cmd,
-                               const uint32_t x,
-                               const uint32_t y,
-                               const uint32_t z) const {
-    accumulationImage->TransitionLayout(cmd,
-                                        vk::ImageLayout::eUndefined,
-                                        vk::ImageLayout::eGeneral,
-                                        vk::PipelineStageFlagBits2::eTopOfPipe,
-                                        vk::PipelineStageFlagBits2::eComputeShader);
-
-    resultImage->TransitionLayout(cmd,
-                                  vk::ImageLayout::eUndefined,
-                                  vk::ImageLayout::eGeneral,
-                                  vk::PipelineStageFlagBits2::eTopOfPipe,
-                                  vk::PipelineStageFlagBits2::eComputeShader);
-
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet, {});
-    cmd.dispatch(x, y, z);
-
-    resultImage->TransitionLayout(cmd,
-                                  vk::ImageLayout::eGeneral,
-                                  vk::ImageLayout::eShaderReadOnlyOptimal,
-                                  vk::PipelineStageFlagBits2::eComputeShader,
-                                  vk::PipelineStageFlagBits2::eFragmentShader);
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
+    cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet, {});
+    cb.dispatch(gcX, gcY, gcZ);
 }
 
 void ComputePipeline::CreateDescriptorSet() {
@@ -50,25 +26,13 @@ void ComputePipeline::CreateDescriptorSet() {
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
-                 .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
                  .AddTo(context->device, descriptorSetLayouts);
 
     descriptorSet = AllocateDescriptorSets()[0];
 
-    uniformBuffer = std::make_unique<Buffer>(context, sizeof(uint32_t), vk::BufferUsageFlagBits::eUniformBuffer);
-
-    constexpr vk::ImageUsageFlags usage =
-        vk::ImageUsageFlagBits::eStorage |
-        vk::ImageUsageFlagBits::eSampled |
-        vk::ImageUsageFlagBits::eTransferSrc;
-
-    accumulationImage = std::make_unique<Image>(context, 800, 600, vk::Format::eR32G32B32A32Sfloat, usage);
-    accumulationImageView = accumulationImage->CreateView();
-
     DescriptorSetWriter writer;
-    writer.WriteBuffer(0, uniformBuffer->GetHandle(), uniformBuffer->GetSize())
-          .WriteStorageImage(1, accumulationImageView.get())
-          .WriteStorageImage(2, resultImageView.get())
+    writer.WriteBuffer(0, rtContext->GetSceneBuffer()->GetHandle(), rtContext->GetSceneBuffer()->GetSize())
+          .WriteStorageImage(1, rtContext->GetOutputImageView())
           .Update(context->device, descriptorSet);
 }
 

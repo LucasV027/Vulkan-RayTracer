@@ -4,20 +4,15 @@
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                                    const std::shared_ptr<Swapchain>& swapchain,
-                                   const std::shared_ptr<Image>& resultImage) :
+                                   const std::shared_ptr<RaytracingContext>& rtContext) :
     Pipeline(context),
     swapchain(swapchain),
-    resultImage(resultImage),
-    resultImageView(resultImage->CreateView()) {
-
-    CreateSampler();
+    rtContext(rtContext) {
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
     CreateQuad();
 }
-
-GraphicsPipeline::~GraphicsPipeline() {}
 
 void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
     const auto& fc = swapchain->GetCurrentFrameContext();
@@ -86,7 +81,8 @@ void GraphicsPipeline::CreateDescriptorSet() {
     descriptorSet = AllocateDescriptorSets()[0];
 
     DescriptorSetWriter writer;
-    writer.WriteCombinedImageSampler(0, sampler.get(), resultImageView.get(), vk::ImageLayout::eShaderReadOnlyOptimal)
+    writer.WriteCombinedImageSampler(0, rtContext->GetSampler(), rtContext->GetOutputImageView(),
+                                     vk::ImageLayout::eShaderReadOnlyOptimal)
           .Update(context->device, descriptorSet);
 }
 
@@ -237,24 +233,3 @@ void GraphicsPipeline::CreateQuad() {
     indexBuffer = std::make_unique<Buffer>(context, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
 }
 
-void GraphicsPipeline::CreateSampler() {
-    constexpr vk::SamplerCreateInfo samplerInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eRepeat,
-        .addressModeV = vk::SamplerAddressMode::eRepeat,
-        .addressModeW = vk::SamplerAddressMode::eRepeat,
-        .mipLodBias = 0.0f,
-        .anisotropyEnable = vk::False,
-        .maxAnisotropy = 1.0f,
-        .compareEnable = vk::False,
-        .compareOp = vk::CompareOp::eAlways,
-        .minLod = 0.0f,
-        .maxLod = vk::LodClampNone,
-        .borderColor = vk::BorderColor::eIntOpaqueBlack,
-        .unnormalizedCoordinates = vk::False,
-    };
-
-    sampler = context->device.createSamplerUnique(samplerInfo);
-}

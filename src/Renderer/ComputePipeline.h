@@ -1,32 +1,28 @@
 #pragma once
 
-#include "Buffer.h"
-#include "Image.h"
 #include "Pipeline.h"
 #include "Vulkan.h"
 #include "VulkanContext.h"
+#include "Core/RaytracingContext.h"
 
 class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                             const std::shared_ptr<Image>& resultImage);
-    ~ComputePipeline() override;
+                             const std::shared_ptr<RaytracingContext>& rtContext);
+    ~ComputePipeline() override = default;
 
     void Record(vk::CommandBuffer cb) const override;
 
 private:
-    void Dispatch(vk::CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) const;
-
     void CreateDescriptorSet();
     void CreatePipeline();
 
 private:
+    static constexpr uint32_t workgroupSizeX = 16;
+    static constexpr uint32_t workgroupSizeY = 16;
+    static constexpr uint32_t workgroupSizeZ = 1;
+
     vk::DescriptorSet descriptorSet;
 
-    std::unique_ptr<Buffer> uniformBuffer;
-    std::unique_ptr<Image> accumulationImage;
-    vk::UniqueImageView accumulationImageView;
-
-    std::shared_ptr<Image> resultImage;
-    vk::UniqueImageView resultImageView;
+    std::shared_ptr<RaytracingContext> rtContext;
 };

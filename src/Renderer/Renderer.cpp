@@ -11,11 +11,16 @@ Renderer::Renderer(const std::shared_ptr<VulkanContext>& context,
     window(window) {
     swapchain = std::make_shared<Swapchain>(context, window);
 
-    resultImage = std::make_shared<Image>(context, 800, 600, vk::Format::eR32G32B32A32Sfloat,
-                                          vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled);
+    auto [windowWidth,windowHeight] = window->GetSize();
+    RaytracingContext::Config rtConfig{
+        .width = windowWidth,
+        .height = windowHeight,
+        .outputFormat = vk::Format::eR32G32B32A32Sfloat
+    };
+    rtContext = std::make_shared<RaytracingContext>(context, rtConfig);
 
-    computePipeline = std::make_unique<ComputePipeline>(context, resultImage);
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, resultImage);
+    computePipeline = std::make_unique<ComputePipeline>(context, rtContext);
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, rtContext);
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
 
@@ -25,7 +30,9 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
+        rtContext->TransitionForCompute(fc->commandBuffer);
         computePipeline->Record(fc->commandBuffer);
+        rtContext->TransitionForDisplay(fc->commandBuffer);
         graphicsPipeline->Record(fc->commandBuffer);
         uiPipeline->Record(fc->commandBuffer);
 
