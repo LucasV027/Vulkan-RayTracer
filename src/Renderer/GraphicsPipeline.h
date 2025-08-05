@@ -24,7 +24,10 @@ public:
 
     void Record(vk::CommandBuffer cb) const override;
 
+    void Resize();
+
 private:
+    void CreateDescriptorSetLayout();
     void CreateDescriptorSet();
     void CreatePipeline();
     void CreateQuad();
@@ -33,7 +36,7 @@ private:
     std::shared_ptr<Swapchain> swapchain;
     std::shared_ptr<RaytracingContext> rtContext;
 
-    vk::DescriptorSet descriptorSet;
+    vk::UniqueDescriptorSet descriptorSet;
 
     std::unique_ptr<Buffer> vertexBuffer;
     std::unique_ptr<Buffer> indexBuffer;

@@ -166,5 +166,10 @@ void Renderer::Resize() const {
         surfaceProperties.currentExtent.width != currentWidth ||
         surfaceProperties.currentExtent.height != currentHeight;
 
-    if (dimensionsChanged) swapchain->Recreate();
+    if (dimensionsChanged) {
+        swapchain->Recreate();
+        rtContext->Resize(currentWidth, currentHeight);
+        graphicsPipeline->Resize();
+        computePipeline->Resize();
+    }
 }

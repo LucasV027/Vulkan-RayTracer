@@ -8,6 +8,7 @@ GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context
     Pipeline(context),
     swapchain(swapchain),
     rtContext(rtContext) {
+    CreateDescriptorSetLayout();
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
@@ -44,7 +45,7 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-    cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, descriptorSet, {});
+    cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, descriptorSet.get(), {});
 
     const vk::Viewport vp{
         .width = static_cast<float>(extent.width),
@@ -73,17 +74,23 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
     cb.endRendering();
 }
 
-void GraphicsPipeline::CreateDescriptorSet() {
+void GraphicsPipeline::Resize() {
+    CreateDescriptorSet();
+}
+
+void GraphicsPipeline::CreateDescriptorSetLayout() {
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
+}
 
-    descriptorSet = AllocateDescriptorSets()[0];
+void GraphicsPipeline::CreateDescriptorSet() {
+    descriptorSet = std::move(AllocateDescriptorSets()[0]);
 
     DescriptorSetWriter writer;
     writer.WriteCombinedImageSampler(0, rtContext->GetSampler(), rtContext->GetOutputImageView(),
                                      vk::ImageLayout::eShaderReadOnlyOptimal)
-          .Update(vulkanContext->device, descriptorSet);
+          .Update(vulkanContext->device, descriptorSet.get());
 }
 
 void GraphicsPipeline::CreatePipeline() {

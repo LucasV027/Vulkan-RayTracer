@@ -11,6 +11,16 @@ void RaytracingContext::Update(const bool reset) {
     sceneBuffer->Update(frameIndex++);
 }
 
+void RaytracingContext::Resize(const uint32_t width, const uint32_t height) {
+    if (config.width == width && config.height == height) return;
+
+    config.width = width;
+    config.height = height;
+
+    CreateResources();
+    Update(true);
+}
+
 void RaytracingContext::TransitionForCompute(const vk::CommandBuffer cmd) const {
     accumulationImage->TransitionLayout(cmd,
                                         vk::ImageLayout::eUndefined,
@@ -104,7 +114,6 @@ void RaytracingContext::CreateResources() {
     accumulationImageView = accumulationImage->CreateView();
 
     sceneBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(uint32_t), vk::BufferUsageFlagBits::eUniformBuffer);
-
 
     constexpr vk::SamplerCreateInfo samplerInfo{
         .magFilter = vk::Filter::eLinear,

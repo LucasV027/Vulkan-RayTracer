@@ -26,12 +26,12 @@ void Pipeline::CreatePipelineLayout() {
     pipelineLayout = vulkanContext->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
-std::vector<vk::DescriptorSet> Pipeline::AllocateDescriptorSets() {
+std::vector<vk::UniqueDescriptorSet> Pipeline::AllocateDescriptorSets() {
     const vk::DescriptorSetAllocateInfo allocInfo{
         .descriptorPool = vulkanContext->mainDescriptorPool,
         .descriptorSetCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
         .pSetLayouts = descriptorSetLayouts.data(),
     };
 
-    return vulkanContext->device.allocateDescriptorSets(allocInfo);
+    return vulkanContext->device.allocateDescriptorSetsUnique(allocInfo);
 }

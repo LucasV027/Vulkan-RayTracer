@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "Renderer/Vulkan.h"
 #include "Renderer/VulkanContext.h"
 #include "Renderer/Image.h"
@@ -17,6 +18,7 @@ public:
     ~RaytracingContext() = default;
 
     void Update(bool reset = false);
+    void Resize(uint32_t width, uint32_t height);
 
     vk::Image GetAccumulationImage() const { return accumulationImage->GetHandle(); }
     vk::Image GetOutputImage() const { return outputImage->GetHandle(); }

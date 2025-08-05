@@ -15,7 +15,7 @@ public:
 protected:
     virtual void CreatePipelineLayout();
 
-    std::vector<vk::DescriptorSet> AllocateDescriptorSets();
+    std::vector<vk::UniqueDescriptorSet> AllocateDescriptorSets();
 
 protected:
     std::shared_ptr<VulkanContext> vulkanContext;

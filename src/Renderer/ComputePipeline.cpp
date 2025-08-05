@@ -6,36 +6,43 @@ ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
                                  const std::shared_ptr<RaytracingContext>& rtContext) :
     Pipeline(context),
     rtContext(rtContext) {
+    CreateDescriptorSetLayout();
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
 }
 
 void ComputePipeline::Record(const vk::CommandBuffer cb) const {
-    const auto gcX = (rtContext->GetWidth() + workgroupSizeX - 1) / workgroupSizeX;
-    const auto gcY = (rtContext->GetHeight() + workgroupSizeY - 1) / workgroupSizeY;
-    constexpr auto gcZ = (1 + workgroupSizeZ - 1) / workgroupSizeZ;
+    const auto gcX = (rtContext->GetWidth() + WORK_GROUP_SIZE_X - 1) / WORK_GROUP_SIZE_X;
+    const auto gcY = (rtContext->GetHeight() + WORK_GROUP_SIZE_Y - 1) / WORK_GROUP_SIZE_Y;
+    constexpr auto gcZ = (1 + WORK_GROUP_SIZE_Z - 1) / WORK_GROUP_SIZE_Z;
 
     cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
-    cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet, {});
+    cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet.get(), {});
     cb.dispatch(gcX, gcY, gcZ);
 }
 
-void ComputePipeline::CreateDescriptorSet() {
+void ComputePipeline::Resize() {
+    CreateDescriptorSet();
+}
+
+void ComputePipeline::CreateDescriptorSetLayout() {
     constexpr auto stage = vk::ShaderStageFlagBits::eCompute;
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
                  .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
+}
 
-    descriptorSet = AllocateDescriptorSets()[0];
+void ComputePipeline::CreateDescriptorSet() {
+    descriptorSet = std::move(AllocateDescriptorSets()[0]);
 
     DescriptorSetWriter writer;
     writer.WriteBuffer(0, rtContext->GetSceneBuffer()->GetHandle(), rtContext->GetSceneBuffer()->GetSize())
           .WriteStorageImage(1, rtContext->GetAccumulationImageView())
           .WriteStorageImage(2, rtContext->GetOutputImageView())
-          .Update(vulkanContext->device, descriptorSet);
+          .Update(vulkanContext->device, descriptorSet.get());
 }
 
 void ComputePipeline::CreatePipeline() {

@@ -13,16 +13,19 @@ public:
 
     void Record(vk::CommandBuffer cb) const override;
 
+    void Resize();
+
 private:
+    void CreateDescriptorSetLayout();
     void CreateDescriptorSet();
     void CreatePipeline();
 
 private:
-    static constexpr uint32_t workgroupSizeX = 16;
-    static constexpr uint32_t workgroupSizeY = 16;
-    static constexpr uint32_t workgroupSizeZ = 1;
+    static constexpr uint32_t WORK_GROUP_SIZE_X = 16;
+    static constexpr uint32_t WORK_GROUP_SIZE_Y = 16;
+    static constexpr uint32_t WORK_GROUP_SIZE_Z = 1;
 
-    vk::DescriptorSet descriptorSet;
+    vk::UniqueDescriptorSet descriptorSet;
 
     std::shared_ptr<RaytracingContext> rtContext;
 };
