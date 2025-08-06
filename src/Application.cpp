@@ -2,8 +2,7 @@
 
 #include <imgui.h>
 
-#include "Utils.h"
-#include "Log.h"
+#include "Core/Log.h"
 
 Application::Application(std::string title, uint32_t width, uint32_t height) {
     try {

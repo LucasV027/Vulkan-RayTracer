@@ -1,6 +1,6 @@
 #include "Buffer.h"
 
-#include "Log.h"
+#include "Core/Log.h"
 
 Buffer::Buffer(const std::shared_ptr<VulkanContext>& context,
                const vk::DeviceSize size,

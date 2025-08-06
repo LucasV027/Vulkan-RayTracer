@@ -1,9 +1,9 @@
-#include "Utils.h"
+#include "File.h"
 
 #include <fstream>
 #include <cstring> // memcpy
 
-namespace Utils {
+namespace File {
     std::expected<std::vector<std::byte>, FileError> ReadBinaryFile(const std::filesystem::path& path) {
         namespace fs = std::filesystem;
 

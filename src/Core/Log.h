@@ -8,4 +8,6 @@
 #define LOGE(...) std::cout << "[ERROR] " << std::format(__VA_ARGS__) << std::endl
 #ifndef NDEBUG
 #define LOGD(...) std::cout << "[DEBUG] " << std::format(__VA_ARGS__) << std::endl
+#else
+#define LOGD(...) ((void)0)
 #endif

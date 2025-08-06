@@ -7,11 +7,11 @@ add_executable(${PROJECT_NAME}
         src/main.cpp
         src/Application.cpp
         src/Application.h
-        src/Log.h
-        src/Utils.h
-        src/Utils.cpp
-        src/Window.cpp
-        src/Window.h
+        src/Core/Log.h
+        src/Core/File.h
+        src/Core/File.cpp
+        src/Window/Window.cpp
+        src/Window/Window.h
         src/Vulkan/Base.cpp
         src/Vulkan/Base.h
         src/Renderer/Renderer.cpp

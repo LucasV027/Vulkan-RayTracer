@@ -4,7 +4,7 @@
 #include <string>
 
 #include "Renderer/Renderer.h"
-#include "Window.h"
+#include "Window/Window.h"
 #include "Vulkan/VulkanContext.h"
 
 class Application {

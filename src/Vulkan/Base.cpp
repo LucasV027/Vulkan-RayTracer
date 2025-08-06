@@ -1,10 +1,10 @@
 #include "Base.h"
 
-#include "Utils.h"
+#include "Core/File.h"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-#include "Log.h"
+#include "Core/Log.h"
 
 #ifndef NDEBUG
 vk::Bool32 vkHelpers::DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -42,7 +42,7 @@ vk::Bool32 vkHelpers::DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT mes
 #endif
 
 vk::UniqueShaderModule vkHelpers::CreateShaderModule(const vk::Device device, const std::filesystem::path& filepath) {
-    auto code = Utils::ReadSpirvFile(filepath);
+    auto code = File::ReadSpirvFile(filepath);
     if (!code) {
         throw std::runtime_error(std::format("{}", code.error()));
     }

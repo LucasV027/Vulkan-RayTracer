@@ -6,7 +6,7 @@
 #include <vector>
 #include <format>
 
-namespace Utils {
+namespace File {
     struct FileError {
         enum class Type {
             NotFound,
@@ -24,17 +24,17 @@ namespace Utils {
 }
 
 template <>
-struct std::formatter<Utils::FileError> : std::formatter<std::string> {
-    auto format(const Utils::FileError& err, std::format_context& ctx) const {
+struct std::formatter<File::FileError> : std::formatter<std::string> {
+    auto format(const File::FileError& err, std::format_context& ctx) const {
         std::string_view errorTypeString;
         switch (err.type) {
-        case Utils::FileError::Type::NotFound: errorTypeString = "File not found";
+        case File::FileError::Type::NotFound: errorTypeString = "File not found";
             break;
-        case Utils::FileError::Type::NotAFile: errorTypeString = "Path is not a regular file";
+        case File::FileError::Type::NotAFile: errorTypeString = "Path is not a regular file";
             break;
-        case Utils::FileError::Type::OpenFailed: errorTypeString = "Failed to open file";
+        case File::FileError::Type::OpenFailed: errorTypeString = "Failed to open file";
             break;
-        case Utils::FileError::Type::ReadFailed: errorTypeString = "Failed to read file";
+        case File::FileError::Type::ReadFailed: errorTypeString = "Failed to read file";
             break;
         default: errorTypeString = "Unknown error";
             break;
