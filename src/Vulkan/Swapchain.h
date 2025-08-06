@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Vulkan.h"
-#include "Renderer/VulkanContext.h"
+#include "Vulkan/Base.h"
+#include "VulkanContext.h"
 #include "Window.h"
 
 struct FrameContext {

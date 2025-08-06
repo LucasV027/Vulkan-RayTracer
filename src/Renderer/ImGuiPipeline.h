@@ -2,9 +2,10 @@
 
 #include <memory>
 
-#include "Generic/Pipeline.h"
-#include "Generic/Swapchain.h"
-#include "VulkanContext.h"
+#include "Window.h"
+#include "Vulkan/Pipeline.h"
+#include "Vulkan/Swapchain.h"
+#include "Vulkan/VulkanContext.h"
 
 class ImGuiPipeline final : public Pipeline {
 public:

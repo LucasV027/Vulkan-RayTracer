@@ -1,6 +1,6 @@
 #include "GraphicsPipeline.h"
 
-#include "Generic/DescriptorSet.h"
+#include "Vulkan/DescriptorSet.h"
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
                                    const std::shared_ptr<Swapchain>& swapchain,

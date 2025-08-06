@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vulkan.h"
+#include "Vulkan/Base.h"
 
 class DescriptorSetLayoutBuilder {
 public:

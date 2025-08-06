@@ -3,10 +3,10 @@
 #include <cstdint>
 
 #include "Ressources.h"
-#include "Renderer/VulkanContext.h"
-#include "Renderer/Generic/Vulkan.h"
-#include "Renderer/Generic/Image.h"
-#include "Renderer/Generic/Buffer.h"
+#include "Vulkan/Base.h"
+#include "Vulkan/VulkanContext.h"
+#include "Vulkan/Image.h"
+#include "Vulkan/Buffer.h"
 
 namespace Raytracer {
     class Context {

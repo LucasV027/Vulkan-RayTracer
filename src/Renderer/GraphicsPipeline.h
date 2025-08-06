@@ -2,11 +2,11 @@
 
 #include <memory>
 
-#include "Generic/Buffer.h"
-#include "Generic/Image.h"
-#include "Generic/Pipeline.h"
-#include "Generic/Swapchain.h"
-#include "VulkanContext.h"
+#include "Vulkan/Base.h"
+#include "Vulkan/Buffer.h"
+#include "Vulkan/Pipeline.h"
+#include "Vulkan/Swapchain.h"
+#include "Vulkan/VulkanContext.h"
 #include "Raytracer/Context.h"
 
 struct Vertex {

@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "Vulkan.h"
-#include "Renderer/VulkanContext.h"
+#include "Vulkan/Base.h"
+#include "VulkanContext.h"
 
 class Pipeline {
 public:

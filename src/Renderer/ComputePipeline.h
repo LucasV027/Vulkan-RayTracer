@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Generic/Pipeline.h"
-#include "Generic/Vulkan.h"
-#include "VulkanContext.h"
+#include "Vulkan/Base.h"
+#include "Vulkan/Pipeline.h"
+#include "Vulkan/VulkanContext.h"
 #include "Raytracer/Context.h"
 
 class ComputePipeline final : public Pipeline {

@@ -12,29 +12,29 @@ add_executable(${PROJECT_NAME}
         src/Utils.cpp
         src/Window.cpp
         src/Window.h
-        src/Renderer/Generic/Vulkan.cpp
-        src/Renderer/Generic/Vulkan.h
+        src/Vulkan/Base.cpp
+        src/Vulkan/Base.h
         src/Renderer/Renderer.cpp
         src/Renderer/Renderer.h
         src/Renderer/ComputePipeline.cpp
         src/Renderer/ComputePipeline.h
-        src/Renderer/VulkanContext.cpp
-        src/Renderer/VulkanContext.h
+        src/Vulkan/VulkanContext.cpp
+        src/Vulkan/VulkanContext.h
         src/Renderer/GraphicsPipeline.cpp
         src/Renderer/GraphicsPipeline.h
         src/Renderer/ImGuiPipeline.cpp
         src/Renderer/ImGuiPipeline.h
-        src/Renderer/Generic/Swapchain.cpp
-        src/Renderer/Generic/Swapchain.h
-        src/Renderer/Generic/Pipeline.h
-        src/Renderer/Generic/DescriptorSet.h
-        src/Renderer/Generic/DescriptorSet.cpp
-        src/Renderer/Generic/DescriptorSet.h
-        src/Renderer/Generic/Buffer.cpp
-        src/Renderer/Generic/Buffer.h
-        src/Renderer/Generic/Image.cpp
-        src/Renderer/Generic/Image.h
-        src/Renderer/Generic/Pipeline.cpp
+        src/Vulkan/Swapchain.cpp
+        src/Vulkan/Swapchain.h
+        src/Vulkan/DescriptorSet.h
+        src/Vulkan/DescriptorSet.cpp
+        src/Vulkan/DescriptorSet.h
+        src/Vulkan/Buffer.cpp
+        src/Vulkan/Buffer.h
+        src/Vulkan/Image.cpp
+        src/Vulkan/Image.h
+        src/Vulkan/Pipeline.h
+        src/Vulkan/Pipeline.cpp
         src/Raytracer/Context.cpp
         src/Raytracer/Context.h
         src/Raytracer/Ressources.cpp

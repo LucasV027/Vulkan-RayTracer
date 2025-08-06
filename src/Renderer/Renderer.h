@@ -3,9 +3,9 @@
 #include "ComputePipeline.h"
 #include "GraphicsPipeline.h"
 #include "ImGuiPipeline.h"
-#include "VulkanContext.h"
-#include "Generic/Swapchain.h"
-#include "Generic/Vulkan.h"
+#include "Vulkan/Base.h"
+#include "Vulkan/VulkanContext.h"
+#include "Vulkan/Swapchain.h"
 
 class Renderer {
 public:
