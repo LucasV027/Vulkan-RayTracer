@@ -1,19 +1,16 @@
 #include "Renderer.h"
 
 #include <imgui.h>
-#include <set>
-
-#include "Core/Log.h"
 
 Renderer::Renderer(const std::shared_ptr<Window>& window,
                    const std::shared_ptr<VulkanContext>& context,
-                   const std::shared_ptr<Raytracer::Context>& rtContext) :
+                   const std::shared_ptr<Raytracer>& raytracer) :
     window(window),
-    vulkanContext(context),
-    rtContext(rtContext) {
+    vulkanContext(context) {
     swapchain = std::make_shared<Swapchain>(context, window);
-    computePipeline = std::make_unique<ComputePipeline>(context, rtContext);
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain, rtContext);
+    computePipeline = std::make_unique<ComputePipeline>(context, raytracer);
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
+    graphicsPipeline->SetImageView(computePipeline->GetImageView());
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
 
@@ -23,10 +20,7 @@ Renderer::~Renderer() {
 
 void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
-        rtContext->TransitionForCompute(fc->commandBuffer);
         computePipeline->Record(fc->commandBuffer);
-        rtContext->CopyResultToAcc(fc->commandBuffer);
-        rtContext->TransitionForDisplay(fc->commandBuffer);
         graphicsPipeline->Record(fc->commandBuffer);
         uiPipeline->Record(fc->commandBuffer);
 
@@ -35,6 +29,10 @@ void Renderer::Draw() const {
     } else {
         uiPipeline->End();
     }
+}
+
+void Renderer::Update() const {
+    computePipeline->Update();
 }
 
 void Renderer::Begin() const {
@@ -168,8 +166,7 @@ void Renderer::Resize() const {
 
     if (dimensionsChanged) {
         swapchain->Recreate();
-        rtContext->Resize(currentWidth, currentHeight);
-        graphicsPipeline->Resize();
         computePipeline->Resize();
+        graphicsPipeline->SetImageView(computePipeline->GetImageView());
     }
 }

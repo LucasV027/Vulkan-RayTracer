@@ -35,10 +35,9 @@ add_executable(${PROJECT_NAME}
         src/Vulkan/Image.h
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
-        src/Raytracer/Context.cpp
-        src/Raytracer/Context.h
-        src/Raytracer/Ressources.cpp
-        src/Raytracer/Ressources.h
+        src/Raytracer/Raytracer.cpp
+        src/Raytracer/Raytracer.h
+        src/Raytracer/Data.h
 )
 
 include(Dependencies.cmake)

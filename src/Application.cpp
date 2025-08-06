@@ -7,12 +7,9 @@
 Application::Application(std::string title, uint32_t width, uint32_t height) {
     try {
         window = std::make_shared<Window>(width, height, title);
+        raytracer = std::make_shared<Raytracer>(width, height);
         vulkanContext = std::make_shared<VulkanContext>(window);
-        rtContext = std::make_shared<Raytracer::Context>(vulkanContext, Raytracer::Context::Config{
-                                                             .width = width,
-                                                             .height = height
-                                                         });
-        renderer = std::make_unique<Renderer>(window, vulkanContext, rtContext);
+        renderer = std::make_unique<Renderer>(window, vulkanContext, raytracer);
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
@@ -21,23 +18,24 @@ Application::Application(std::string title, uint32_t width, uint32_t height) {
 
 void Application::Run() const {
     while (!window->ShouldClose()) {
+        raytracer->Update();
+        renderer->Update();
         window->PollEvents();
         renderer->Begin();
         ImGui::Begin("[INFO]");
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-        ImGui::Text("Frame index: %d", rtContext->GetFrameIndex());
+        ImGui::Text("Frame index: %d", raytracer->GetFrameIndex());
         auto [width, height] = window->GetSize();
         ImGui::Text("Window size: (%d, %d)", width, height);
         ImGui::End();
         renderer->Draw();
-        rtContext->Update();
     }
 }
 
 Application::~Application() {
     // explicit order deletion
     window.reset();
-    rtContext.reset();
     renderer.reset();
+    raytracer.reset();
     vulkanContext.reset();
 }

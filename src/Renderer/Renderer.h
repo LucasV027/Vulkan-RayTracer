@@ -11,11 +11,12 @@ class Renderer {
 public:
     explicit Renderer(const std::shared_ptr<Window>& window,
                       const std::shared_ptr<VulkanContext>& context,
-                      const std::shared_ptr<Raytracer::Context>& rtContext);
+                      const std::shared_ptr<Raytracer>& raytracer);
     ~Renderer();
 
     void Begin() const;
     void Draw() const;
+    void Update() const;
 
 private:
     FrameContext* BeginFrame() const;
@@ -36,8 +37,6 @@ private:
 private:
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;
-    std::shared_ptr<Raytracer::Context> rtContext;
-
     std::shared_ptr<Swapchain> swapchain;
     std::unique_ptr<ComputePipeline> computePipeline;
     std::unique_ptr<GraphicsPipeline> graphicsPipeline;

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "Raytracer/Raytracer.h"
 #include "Renderer/Renderer.h"
 #include "Window/Window.h"
 #include "Vulkan/VulkanContext.h"
@@ -16,6 +17,6 @@ public:
 private:
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;
-    std::shared_ptr<Raytracer::Context> rtContext;
+    std::shared_ptr<Raytracer> raytracer;
     std::shared_ptr<Renderer> renderer;
 };

@@ -3,16 +3,14 @@
 #include "Vulkan/DescriptorSet.h"
 
 GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
-                                   const std::shared_ptr<Swapchain>& swapchain,
-                                   const std::shared_ptr<Raytracer::Context>& rtContext) :
+                                   const std::shared_ptr<Swapchain>& swapchain) :
     Pipeline(context),
-    swapchain(swapchain),
-    rtContext(rtContext) {
+    swapchain(swapchain) {
+    CreateSampler();
     CreateDescriptorSetLayout();
-    CreateDescriptorSet();
+    // CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
-    CreateQuad();
 }
 
 void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
@@ -41,12 +39,6 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
         .pColorAttachments = &colorAttachment
     };
 
-    cb.beginRendering(renderingInfo);
-
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
-
-    cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, descriptorSet.get(), {});
-
     const vk::Viewport vp{
         .width = static_cast<float>(extent.width),
         .height = static_cast<float>(extent.height),
@@ -58,6 +50,12 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
         .extent = extent,
     };
 
+    cb.beginRendering(renderingInfo);
+
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+
+    cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, descriptorSet.get(), {});
+
     cb.setViewport(0, vp);
     cb.setScissor(0, scissor);
 
@@ -65,17 +63,20 @@ void GraphicsPipeline::Record(const vk::CommandBuffer cb) const {
     cb.setFrontFace(vk::FrontFace::eClockwise);
     cb.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
 
-    constexpr vk::DeviceSize offsets[] = {0};
-    const auto vbo = vertexBuffer->GetHandle();
-    cb.bindVertexBuffers(0, 1, &vbo, offsets);
-    cb.bindIndexBuffer(indexBuffer->GetHandle(), 0, vk::IndexType::eUint32);
-    cb.drawIndexed(indexCount, 1, 0, 0, 0);
+    cb.draw(6, 1, 0, 0);
 
     cb.endRendering();
 }
 
 void GraphicsPipeline::Resize() {
     CreateDescriptorSet();
+}
+
+void GraphicsPipeline::SetImageView(const vk::ImageView newImageView) {
+    if (imageView != newImageView) {
+        imageView = newImageView;
+        CreateDescriptorSet();
+    }
 }
 
 void GraphicsPipeline::CreateDescriptorSetLayout() {
@@ -88,44 +89,21 @@ void GraphicsPipeline::CreateDescriptorSet() {
     descriptorSet = std::move(AllocateDescriptorSets()[0]);
 
     DescriptorSetWriter writer;
-    writer.WriteCombinedImageSampler(0, rtContext->GetSampler(), rtContext->GetOutputImageView(),
-                                     vk::ImageLayout::eShaderReadOnlyOptimal)
+    constexpr auto layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    writer.WriteCombinedImageSampler(0, sampler.get(), imageView, layout)
           .Update(vulkanContext->device, descriptorSet.get());
 }
 
 void GraphicsPipeline::CreatePipeline() {
-    vk::VertexInputBindingDescription vertexInputBindings{
-        .binding = 0,
-        .stride = sizeof(Vertex),
-        .inputRate = vk::VertexInputRate::eVertex
-    };
-
-    std::array<vk::VertexInputAttributeDescription, 2> vertexInputAttributes{
-        {
-            {
-                .location = 0,
-                .binding = 0,
-                .format = vk::Format::eR32G32B32Sfloat,
-                .offset = 0
-            },
-            {
-                .location = 1,
-                .binding = 0,
-                .format = vk::Format::eR32G32Sfloat,
-                .offset = sizeof(Vertex::pos),
-            }
-        }
-    };
-
-    vk::PipelineVertexInputStateCreateInfo vertexInput{
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &vertexInputBindings,
-        .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size()),
-        .pVertexAttributeDescriptions = vertexInputAttributes.data()
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = nullptr,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = nullptr
     };
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList
+        .topology = vk::PrimitiveTopology::eTriangleList,
     };
 
     vk::PipelineRasterizationStateCreateInfo raster{
@@ -147,7 +125,6 @@ void GraphicsPipeline::CreatePipeline() {
         .pDynamicStates = dynamicStates.data()
     };
 
-    // Our attachment will write to all color channels, but no blending is enabled.
     vk::PipelineColorBlendAttachmentState blendAttachment{
         .colorWriteMask =
         vk::ColorComponentFlagBits::eR |
@@ -161,18 +138,15 @@ void GraphicsPipeline::CreatePipeline() {
         .pAttachments = &blendAttachment
     };
 
-    // We will have one viewport and scissor box.
     vk::PipelineViewportStateCreateInfo viewport{
         .viewportCount = 1,
         .scissorCount = 1
     };
 
-    // Disable all depth testing.
     vk::PipelineDepthStencilStateCreateInfo depthStencil{
         .depthCompareOp = vk::CompareOp::eAlways
     };
 
-    // No multisampling.
     vk::PipelineMultisampleStateCreateInfo multisample{
         .rasterizationSamples = vk::SampleCountFlagBits::e1
     };
@@ -195,19 +169,17 @@ void GraphicsPipeline::CreatePipeline() {
         }
     };
 
-    // Pipeline rendering info (for dynamic rendering).
     auto format = swapchain->GetFormat();
     vk::PipelineRenderingCreateInfo pipelineRenderingInfo{
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &format,
     };
 
-    // Create the graphics pipeline.
     vk::GraphicsPipelineCreateInfo pipelineCreateInfo{
         .pNext = &pipelineRenderingInfo,
         .stageCount = static_cast<uint32_t>(shaderStages.size()),
         .pStages = shaderStages.data(),
-        .pVertexInputState = &vertexInput,
+        .pVertexInputState = &vertexInputInfo,
         .pInputAssemblyState = &inputAssembly,
         .pViewportState = &viewport,
         .pRasterizationState = &raster,
@@ -215,8 +187,8 @@ void GraphicsPipeline::CreatePipeline() {
         .pDepthStencilState = &depthStencil,
         .pColorBlendState = &blend,
         .pDynamicState = &dynamicStateCreateInfo,
-        .layout = pipelineLayout, // We need to specify the pipeline layout description up front as well.
-        .renderPass = nullptr,    // Since we are using dynamic rendering this will set as null
+        .layout = pipelineLayout,
+        .renderPass = nullptr, // Since we are using dynamic rendering this will set as null
         .subpass = 0,
     };
 
@@ -225,18 +197,25 @@ void GraphicsPipeline::CreatePipeline() {
     if (result != vk::Result::eSuccess) throw std::runtime_error("failed to create graphics pipeline");
 }
 
-void GraphicsPipeline::CreateQuad() {
-    static const std::vector<Vertex> QUAD_UV = {
-        {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-        {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}}
+void GraphicsPipeline::CreateSampler() {
+    constexpr vk::SamplerCreateInfo samplerInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eRepeat,
+        .addressModeV = vk::SamplerAddressMode::eRepeat,
+        .addressModeW = vk::SamplerAddressMode::eRepeat,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = vk::False,
+        .maxAnisotropy = 1.0f,
+        .compareEnable = vk::False,
+        .compareOp = vk::CompareOp::eAlways,
+        .minLod = 0.0f,
+        .maxLod = vk::LodClampNone,
+        .borderColor = vk::BorderColor::eIntOpaqueBlack,
+        .unnormalizedCoordinates = vk::False,
     };
 
-    static const std::vector<uint32_t> QUAD_INDICES = {0, 1, 2, 2, 3, 0};
-
-    indexCount = static_cast<uint32_t>(QUAD_INDICES.size());
-    vertexBuffer = std::make_unique<Buffer>(vulkanContext, QUAD_UV, vk::BufferUsageFlagBits::eVertexBuffer);
-    indexBuffer = std::make_unique<Buffer>(vulkanContext, QUAD_INDICES, vk::BufferUsageFlagBits::eIndexBuffer);
+    sampler = vulkanContext->device.createSamplerUnique(samplerInfo);
 }
 
