@@ -24,12 +24,14 @@ Window::~Window() {
     if (windowCount == 0) glfwTerminate();
 }
 
-void Window::PollEvents() const {
-    glfwPollEvents();
-}
+void Window::PollEvents() const { glfwPollEvents(); }
+void Window::WaitEvents() const { glfwWaitEvents(); }
 
-bool Window::ShouldClose() const {
-    return glfwWindowShouldClose(handle);
+void Window::WaitWhileMinimized() const {
+    while (IsMinimized()) {
+        if (ShouldClose()) return;
+        WaitEvents();
+    }
 }
 
 std::pair<uint32_t, uint32_t> Window::GetSize() const {
@@ -38,14 +40,13 @@ std::pair<uint32_t, uint32_t> Window::GetSize() const {
     return std::make_pair(width, height);
 }
 
-std::pair<uint32_t, uint32_t> Window::GetFrameBufferSize() const {
-    int width, height;
-    glfwGetFramebufferSize(handle, &width, &height);
-    return std::make_pair(width, height);
-}
-
-const char* Window::GetTitle() const {
-    return glfwGetWindowTitle(handle);
-}
+const char* Window::GetTitle() const { return glfwGetWindowTitle(handle); }
 
 GLFWwindow* Window::Handle() const { return handle; }
+
+bool Window::ShouldClose() const { return glfwWindowShouldClose(handle); }
+
+bool Window::IsMinimized() const {
+    auto [width, height] = GetSize();
+    return width == 0 && height == 0;
+}

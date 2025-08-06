@@ -13,11 +13,15 @@ public:
     ~Window();
 
     void PollEvents() const;
-    bool ShouldClose() const;
+    void WaitEvents() const;
+    void WaitWhileMinimized() const;
+
     std::pair<uint32_t, uint32_t> GetSize() const;
-    std::pair<uint32_t, uint32_t> GetFrameBufferSize() const;
     const char* GetTitle() const;
     GLFWwindow* Handle() const;
+
+    bool ShouldClose() const;
+    bool IsMinimized() const;
 
 private:
     GLFWwindow* handle = nullptr;

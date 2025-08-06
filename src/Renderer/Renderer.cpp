@@ -110,9 +110,7 @@ void Renderer::Present(const FrameContext& fc) const {
 
     try {
         const auto result = vulkanContext->graphicsQueue.presentKHR(presentInfo);
-        if (result == vk::Result::eSuboptimalKHR) {
-            Resize();
-        }
+        if (result == vk::Result::eSuboptimalKHR) Resize();
     } catch (vk::OutOfDateKHRError&) {
         Resize();
     }
@@ -149,24 +147,11 @@ std::expected<FrameContext*, Renderer::AcquireError> Renderer::AcquireNextImage(
 }
 
 void Renderer::Resize() const {
-    int width = 0, height = 0;
-    while (width == 0 || height == 0) {
-        std::tie(width, height) = window->GetFrameBufferSize();
-        glfwWaitEvents();
-    }
+    window->WaitWhileMinimized();
 
     vulkanContext->device.waitIdle();
 
-    const auto surfaceProperties = vulkanContext->physicalDevice.getSurfaceCapabilitiesKHR(vulkanContext->surface);
-
-    auto [currentWidth, currentHeight] = swapchain->GetExtent();
-    const bool dimensionsChanged =
-        surfaceProperties.currentExtent.width != currentWidth ||
-        surfaceProperties.currentExtent.height != currentHeight;
-
-    if (dimensionsChanged) {
-        swapchain->Recreate();
-        computePipeline->Resize();
-        graphicsPipeline->SetImageView(computePipeline->GetImageView());
-    }
+    swapchain->Recreate();
+    computePipeline->Resize();
+    graphicsPipeline->SetImageView(computePipeline->GetImageView());
 }
