@@ -1,8 +1,10 @@
 #include "Application.h"
 
 #include <imgui.h>
+#include <thread>
 
 #include "Core/Log.h"
+using namespace std::chrono_literals;
 
 Application::Application(std::string title, uint32_t width, uint32_t height) {
     try {
@@ -27,8 +29,10 @@ void Application::Run() const {
         ImGui::Text("Frame index: %d", raytracer->GetFrameIndex());
         auto [width, height] = window->GetSize();
         ImGui::Text("Window size: (%d, %d)", width, height);
+        ImGui::Checkbox("Slow?", &slow);
         ImGui::End();
         renderer->Draw();
+        if (slow) std::this_thread::sleep_for(10ms);
     }
 }
 

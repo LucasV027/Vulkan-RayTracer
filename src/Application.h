@@ -19,4 +19,6 @@ private:
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Raytracer> raytracer;
     std::shared_ptr<Renderer> renderer;
+
+    mutable bool slow = true;
 };
