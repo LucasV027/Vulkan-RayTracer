@@ -50,3 +50,14 @@ bool Window::IsMinimized() const {
     auto [width, height] = GetSize();
     return width == 0 && height == 0;
 }
+
+void Window::SetResizeCallback(const std::function<void(int width, int height)>& callback) {
+    this->resizeCallback = callback;
+    glfwSetWindowUserPointer(handle, this);
+
+    glfwSetWindowSizeCallback(handle, [](GLFWwindow* window, const int width, const int height) {
+        if (const auto* _this = static_cast<Window*>(glfwGetWindowUserPointer(window))) {
+            _this->resizeCallback(width, height);
+        }
+    });
+}

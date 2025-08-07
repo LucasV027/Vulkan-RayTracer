@@ -5,6 +5,7 @@
 #include <utility>
 
 #define GLFW_INCLUDE_VULKAN
+#include <functional>
 #include <GLFW/glfw3.h>
 
 class Window {
@@ -23,7 +24,11 @@ public:
     bool ShouldClose() const;
     bool IsMinimized() const;
 
+    void SetResizeCallback(const std::function<void(int width, int height)>& callback);
+
 private:
     GLFWwindow* handle = nullptr;
+    std::function<void(int, int)> resizeCallback;
+
     inline static int windowCount = 0;
 };

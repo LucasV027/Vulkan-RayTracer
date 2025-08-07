@@ -15,7 +15,8 @@ public:
     ~ComputePipeline() override;
 
     void Dispatch() const;
-    void Upload(const Raytracer& raytracer);
+    void Upload(const Raytracer& raytracer) const;
+    void OnResize(uint32_t newWidth, uint32_t newHeight);
 
     vk::ImageView GetImageView() const { return outputImageView.get(); }
 

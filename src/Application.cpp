@@ -13,6 +13,12 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
         computePipeline = std::make_unique<ComputePipeline>(vulkanContext, *raytracer);
         renderer = std::make_unique<Renderer>(window, vulkanContext);
 
+        window->SetResizeCallback([&](const int w, const int h) {
+            raytracer->Resize(w, h);
+            computePipeline->OnResize(w, h);
+            computePipeline->Upload(*raytracer);
+        });
+
         lastFrameTime = std::chrono::steady_clock::now();
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());

@@ -45,16 +45,21 @@ void ComputePipeline::Dispatch() const {
     context->graphicsQueue.waitIdle();
 }
 
-void ComputePipeline::Upload(const Raytracer& raytracer) {
-    if (width != raytracer.GetWidth() || height != raytracer.GetHeight()) {
-        width = raytracer.GetWidth();
-        height = raytracer.GetHeight();
-        CreateResources();
-        CreateDescriptorSet();
-        ComputeGroupCount();
-    }
-
+void ComputePipeline::Upload(const Raytracer& raytracer) const {
     uniformsBuffer->Update(ToGPU(raytracer.GetData()));
+}
+
+void ComputePipeline::OnResize(const uint32_t newWidth, const uint32_t newHeight) {
+    if (width == newWidth && height == newHeight) return;
+
+    width = newWidth;
+    height = newHeight;
+
+    context->device.waitIdle();
+
+    CreateResources();
+    CreateDescriptorSet();
+    ComputeGroupCount();
 }
 
 void ComputePipeline::CreateCommandPoolAndBuffer() {
