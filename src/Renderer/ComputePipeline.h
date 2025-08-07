@@ -51,9 +51,7 @@ private:
     uint32_t height;
 
     // Resources
-    std::unique_ptr<Image> outputImage;
+    std::unique_ptr<Buffer> uniformsBuffer; // Binding 0
+    std::unique_ptr<Image> outputImage;     // Binding 1
     vk::UniqueImageView outputImageView;
-    vk::UniqueSampler sampler;
-
-    std::unique_ptr<Buffer> uniformsBuffer;
 };

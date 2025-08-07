@@ -16,9 +16,9 @@ public:
     ~Application();
 
 private:
-    void Update(float dt) const;
-    void Compute(float dt) const;
-    void Render() const;
+    void Update() const;
+    void Compute();
+    void Render();
 
 private:
     std::shared_ptr<Window> window;
@@ -27,5 +27,9 @@ private:
     std::shared_ptr<Renderer> renderer;
     std::unique_ptr<ComputePipeline> computePipeline;
 
-    std::chrono::steady_clock::time_point lastFrameTime;
+    std::chrono::steady_clock::time_point start;
+    uint32_t computeCount = 0;
+    uint32_t renderCount = 0;
+    uint32_t computePerSecond = 0;
+    uint32_t renderPerSecond = 0;
 };

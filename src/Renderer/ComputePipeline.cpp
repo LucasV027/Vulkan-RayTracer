@@ -1,6 +1,5 @@
 #include "ComputePipeline.h"
 
-#include "Raytracer/Data.h"
 #include "Vulkan/DescriptorSet.h"
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
@@ -46,7 +45,7 @@ void ComputePipeline::Dispatch() const {
 }
 
 void ComputePipeline::Upload(const Raytracer& raytracer) const {
-    uniformsBuffer->Update(ToGPU(raytracer.GetData()));
+    uniformsBuffer->Update(raytracer.GetUniforms());
 }
 
 void ComputePipeline::OnResize(const uint32_t newWidth, const uint32_t newHeight) {
@@ -126,9 +125,7 @@ void ComputePipeline::CreateResources() {
 
     outputImageView = outputImage->CreateView();
 
-    uniformsBuffer = std::make_unique<Buffer>(vulkanContext,
-                                              sizeof(GPU::Data),
-                                              vk::BufferUsageFlagBits::eUniformBuffer);
+    uniformsBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(Uniforms), vk::BufferUsageFlagBits::eUniformBuffer);
 }
 
 void ComputePipeline::ComputeGroupCount() {

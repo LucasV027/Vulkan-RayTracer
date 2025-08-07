@@ -19,7 +19,7 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
             computePipeline->Upload(*raytracer);
         });
 
-        lastFrameTime = std::chrono::steady_clock::now();
+        start = std::chrono::steady_clock::now();
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
@@ -28,12 +28,16 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
 
 void Application::Run() {
     while (!window->ShouldClose()) {
-        auto now = std::chrono::steady_clock::now();
-        const float dt = std::chrono::duration<float>(now - lastFrameTime).count();
-        lastFrameTime = now;
+        if (std::chrono::steady_clock::now() - start > std::chrono::seconds(1)) {
+            start = std::chrono::steady_clock::now();
+            computePerSecond = computeCount;
+            computeCount = 0;
+            renderPerSecond = renderCount;
+            renderCount = 0;
+        }
 
-        Update(dt);
-        Compute(dt);
+        Update();
+        Compute();
         Render();
     }
 }
@@ -47,23 +51,27 @@ Application::~Application() {
     vulkanContext.reset();
 }
 
-void Application::Update(const float dt) const {
+void Application::Update() const {
     window->PollEvents();
     raytracer->Update();
 }
 
-void Application::Compute(const float dt) const {
+void Application::Compute() {
     computePipeline->Upload(*raytracer);
     computePipeline->Dispatch();
+    computeCount++;
 }
 
-void Application::Render() const {
+void Application::Render() {
     renderer->Begin();
     ImGui::Begin("[INFO]");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("CPS: %d | RPS: %d", computePerSecond, renderPerSecond);
     ImGui::Text("Frame index: %d", raytracer->GetFrameIndex());
     auto [width, height] = window->GetSize();
     ImGui::Text("Window size: (%d, %d)", width, height);
+    raytracer->RenderUI();
     ImGui::End();
     renderer->Draw(computePipeline->GetImageView());
+    renderCount++;
 }

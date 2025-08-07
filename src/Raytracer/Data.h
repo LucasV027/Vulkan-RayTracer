@@ -8,51 +8,53 @@ using vec2 = std::array<float, 2>;
 using vec3 = std::array<float, 3>;
 using vec4 = std::array<float, 4>;
 
-namespace GPU {
 #define LAYOUT_STD140 alignas(16)
+#define STD140_ASSERT(Type, ExpectedSize) \
+static_assert(sizeof(Type) == ExpectedSize, "Size of " #Type " must be " #ExpectedSize " bytes to match std140 layout")
+#define PAD(n) float UNIQUE(_pad, __LINE__)[n]
+#define UNIQUE(base, line) UNIQUE_NAME(base, line)
+#define UNIQUE_NAME(base, line) base##line
 
-    struct LAYOUT_STD140 Sphere {
-        vec3 center;
-        float radius;
-    };
+constexpr size_t MAX_SPHERES = 50;
 
-    struct LAYOUT_STD140 Data {
-        uint frameIndex;
-        float fov;
-        vec2 _pad1 = {};
+struct LAYOUT_STD140 Material {
+    vec3 emissionColor;
+    float emissionStrength;
+    vec3 color;
+    PAD(1);
+};
 
-        vec3 cameraPosition;
-        float _pad2 = 0.0f;
+struct LAYOUT_STD140 Sphere {
+    vec3 pos;
+    float rad;
+    Material mat;
+};
 
-        vec3 cameraForward;
-        float _pad3 = 0.0f;
+struct LAYOUT_STD140 Scene {
+    Sphere spheres[MAX_SPHERES];
+    uint32_t count;
+    PAD(3);
+};
 
-        vec3 cameraRight;
-        float _pad4 = 0.0f;
+struct LAYOUT_STD140 Uniforms {
+    uint frameIndex;
+    float fov;
+    PAD(2);
 
-        vec3 cameraUp;
-        float _pad5 = 0.0f;
-    };
-}
+    vec3 cameraPosition;
+    PAD(1);
 
-namespace CPU {
-    struct Data {
-        uint frameIndex;
-        float fov;
-        vec3 cameraPosition;
-        vec3 cameraForward;
-        vec3 cameraRight;
-        vec3 cameraUp;
-    };
+    vec3 cameraForward;
+    PAD(1);
 
-    inline GPU::Data ToGPU(const Data& data) {
-        return GPU::Data{
-            .frameIndex = data.frameIndex,
-            .fov = data.fov,
-            .cameraPosition = data.cameraPosition,
-            .cameraForward = data.cameraForward,
-            .cameraRight = data.cameraRight,
-            .cameraUp = data.cameraUp,
-        };
-    }
-}
+    vec3 cameraRight;
+    PAD(1);
+
+    vec3 cameraUp;
+    PAD(1);
+};
+
+STD140_ASSERT(Material, 32);
+STD140_ASSERT(Sphere, 48);
+STD140_ASSERT(Scene, 48 * MAX_SPHERES + 16);
+STD140_ASSERT(Uniforms, 80);

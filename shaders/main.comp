@@ -2,7 +2,7 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (std140, set = 0, binding = 0) uniform uniformParameters {
+layout (std140, set = 0, binding = 0) uniform UniformBuffer {
     uint frameIndex;
     float fov;
     vec3 cameraPosition;
@@ -14,7 +14,7 @@ layout (std140, set = 0, binding = 0) uniform uniformParameters {
 layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;
 
 /////////// Constants ///////////
-#define MAX_SPHERES 10
+#define MAX_SPHERES 50
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
@@ -120,19 +120,12 @@ Ray GenerateRay(ivec2 pixelCoord, inout uint state) {
     screen.x *= size.x / size.y;
 
     float focalLength = 1.0 / tan(fov * 0.5);
-    vec3 rayDir = normalize(
-        screen.x * cameraRight +
-        screen.y * cameraUp +
-        focalLength * cameraForward
-    );
+    vec3 rayDir = normalize(screen.x * cameraRight + screen.y * cameraUp + focalLength * cameraForward);
 
     // Anti-aliasing
     rayDir.xyz += RandomVec3(state) * AA_RATIO;
 
-    Ray ray;
-    ray.ori = cameraPosition;
-    ray.dir = rayDir;
-    return ray;
+    return Ray(cameraPosition, rayDir);
 }
 
 HitInfo ClosestHit(Ray ray, const Scene scene) {
