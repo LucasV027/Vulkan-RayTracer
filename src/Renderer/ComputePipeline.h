@@ -29,7 +29,6 @@ private:
 
     void TransitionForCompute(vk::CommandBuffer cmd) const;
     void TransitionForDisplay(vk::CommandBuffer cmd) const;
-    void CopyResultToAcc(vk::CommandBuffer cmd) const;
 
 private:
     static constexpr uint32_t WORK_GROUP_SIZE_X = 16;
@@ -43,9 +42,6 @@ private:
     std::unique_ptr<Image> outputImage;
     vk::UniqueImageView outputImageView;
     vk::UniqueSampler sampler;
-
-    std::unique_ptr<Image> accumulationImage;
-    vk::UniqueImageView accumulationImageView;
 
     std::unique_ptr<Buffer> uniformsBuffer;
 };

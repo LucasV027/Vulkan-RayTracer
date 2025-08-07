@@ -38,6 +38,7 @@ private:
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Swapchain> swapchain;
+    std::shared_ptr<Raytracer> raytracer;
     std::unique_ptr<ComputePipeline> computePipeline;
     std::unique_ptr<GraphicsPipeline> graphicsPipeline;
     std::unique_ptr<ImGuiPipeline> uiPipeline;

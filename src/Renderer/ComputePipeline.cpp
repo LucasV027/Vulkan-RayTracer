@@ -25,7 +25,6 @@ void ComputePipeline::Record(const vk::CommandBuffer cb) const {
     cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet.get(), {});
     cb.dispatch(gcX, gcY, gcZ);
 
-    CopyResultToAcc(cb);
     TransitionForDisplay(cb);
 }
 
@@ -42,7 +41,6 @@ void ComputePipeline::CreateDescriptorSetLayout() {
     DescriptorSetLayoutBuilder layoutBuilder;
     layoutBuilder.AddBinding(0, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(1, vk::DescriptorType::eStorageImage, stage)
-                 .AddBinding(2, vk::DescriptorType::eStorageImage, stage)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
 }
 
@@ -51,8 +49,7 @@ void ComputePipeline::CreateDescriptorSet() {
 
     DescriptorSetWriter writer;
     writer.WriteBuffer(0, uniformsBuffer->GetHandle(), uniformsBuffer->GetSize())
-          .WriteStorageImage(1, accumulationImageView.get())
-          .WriteStorageImage(2, outputImageView.get())
+          .WriteStorageImage(1, outputImageView.get())
           .Update(vulkanContext->device, descriptorSet.get());
 }
 
@@ -85,29 +82,12 @@ void ComputePipeline::CreateResources() {
 
     outputImageView = outputImage->CreateView();
 
-
-    accumulationImage = std::make_unique<Image>(vulkanContext,
-                                                raytracer->GetWidth(),
-                                                raytracer->GetHeight(),
-                                                vk::Format::eR32G32B32A32Sfloat,
-                                                vk::ImageUsageFlagBits::eStorage |
-                                                vk::ImageUsageFlagBits::eSampled |
-                                                vk::ImageUsageFlagBits::eTransferDst);
-
-    accumulationImageView = accumulationImage->CreateView();
-
     uniformsBuffer = std::make_unique<Buffer>(vulkanContext,
                                               sizeof(GPU::Data),
                                               vk::BufferUsageFlagBits::eUniformBuffer);
 }
 
 void ComputePipeline::TransitionForCompute(const vk::CommandBuffer cmd) const {
-    accumulationImage->TransitionLayout(cmd,
-                                        vk::ImageLayout::eUndefined,
-                                        vk::ImageLayout::eGeneral,
-                                        vk::PipelineStageFlagBits2::eTopOfPipe,
-                                        vk::PipelineStageFlagBits2::eComputeShader);
-
     outputImage->TransitionLayout(cmd,
                                   vk::ImageLayout::eUndefined,
                                   vk::ImageLayout::eGeneral,
@@ -123,52 +103,3 @@ void ComputePipeline::TransitionForDisplay(const vk::CommandBuffer cmd) const {
                                   vk::PipelineStageFlagBits2::eFragmentShader);
 }
 
-void ComputePipeline::CopyResultToAcc(const vk::CommandBuffer cmd) const {
-    accumulationImage->TransitionLayout(cmd,
-                                        vk::ImageLayout::eGeneral,
-                                        vk::ImageLayout::eTransferDstOptimal,
-                                        vk::PipelineStageFlagBits2::eComputeShader,
-                                        vk::PipelineStageFlagBits2::eTransfer);
-
-    outputImage->TransitionLayout(cmd,
-                                  vk::ImageLayout::eGeneral,
-                                  vk::ImageLayout::eTransferSrcOptimal,
-                                  vk::PipelineStageFlagBits2::eComputeShader,
-                                  vk::PipelineStageFlagBits2::eTransfer);
-
-    const vk::ImageCopy copyRegion{
-        .srcSubresource = {
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .dstSubresource = {
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .extent = {
-            .width = outputImage->GetWidth(),
-            .height = outputImage->GetHeight(),
-            .depth = 1
-        }
-    };
-
-    cmd.copyImage(outputImage->GetHandle(), vk::ImageLayout::eTransferSrcOptimal,
-                  accumulationImage->GetHandle(), vk::ImageLayout::eTransferDstOptimal,
-                  1, &copyRegion);
-
-    accumulationImage->TransitionLayout(cmd,
-                                        vk::ImageLayout::eTransferDstOptimal,
-                                        vk::ImageLayout::eGeneral,
-                                        vk::PipelineStageFlagBits2::eTransfer,
-                                        vk::PipelineStageFlagBits2::eComputeShader);
-
-    outputImage->TransitionLayout(cmd,
-                                  vk::ImageLayout::eTransferSrcOptimal,
-                                  vk::ImageLayout::eGeneral,
-                                  vk::PipelineStageFlagBits2::eTransfer,
-                                  vk::PipelineStageFlagBits2::eComputeShader);
-}

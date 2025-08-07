@@ -6,7 +6,8 @@ Renderer::Renderer(const std::shared_ptr<Window>& window,
                    const std::shared_ptr<VulkanContext>& context,
                    const std::shared_ptr<Raytracer>& raytracer) :
     window(window),
-    vulkanContext(context) {
+    vulkanContext(context),
+    raytracer(raytracer) {
     swapchain = std::make_shared<Swapchain>(context, window);
     computePipeline = std::make_unique<ComputePipeline>(context, raytracer);
     graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
@@ -151,6 +152,7 @@ void Renderer::Resize() const {
 
     vulkanContext->device.waitIdle();
 
+    raytracer->Resize(window->GetSize().first, window->GetSize().second);
     swapchain->Recreate();
     computePipeline->Resize();
     graphicsPipeline->SetImageView(computePipeline->GetImageView());
