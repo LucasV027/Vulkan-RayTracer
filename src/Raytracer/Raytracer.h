@@ -20,18 +20,13 @@ public:
 
     void Update() {
         data.frameIndex++;
-        NotifyChange();
     }
 
-    void Resize(const uint32_t newWidth, const uint32_t newHeight) {
+    void OnResize(const uint32_t newWidth, const uint32_t newHeight) {
         width = newWidth;
         height = newHeight;
         data.frameIndex = 0;
     }
-
-    void NotifyChange() { needsUpload = true; }
-    bool NeedsUpload() const { return needsUpload; }
-    void ClearUploadFlag() { needsUpload = false; }
 
     uint32_t GetWidth() const { return width; }
     uint32_t GetHeight() const { return height; }
@@ -42,5 +37,4 @@ private:
     uint32_t width;
     uint32_t height;
     CPU::Data data;
-    bool needsUpload = true;
 };
