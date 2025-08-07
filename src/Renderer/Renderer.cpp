@@ -3,15 +3,11 @@
 #include <imgui.h>
 
 Renderer::Renderer(const std::shared_ptr<Window>& window,
-                   const std::shared_ptr<VulkanContext>& context,
-                   const std::shared_ptr<Raytracer>& raytracer) :
+                   const std::shared_ptr<VulkanContext>& context) :
     window(window),
-    vulkanContext(context),
-    raytracer(raytracer) {
+    vulkanContext(context) {
     swapchain = std::make_shared<Swapchain>(context, window);
-    computePipeline = std::make_unique<ComputePipeline>(context, raytracer);
     graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
-    graphicsPipeline->SetImageView(computePipeline->GetImageView());
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
 
@@ -19,9 +15,9 @@ Renderer::~Renderer() {
     if (vulkanContext->device) vulkanContext->device.waitIdle();
 }
 
-void Renderer::Draw() const {
+void Renderer::Draw(const vk::ImageView displayImageView) const {
     if (const auto fc = BeginFrame()) {
-        computePipeline->Record(fc->commandBuffer);
+        graphicsPipeline->SetImageView(displayImageView);
         graphicsPipeline->Record(fc->commandBuffer);
         uiPipeline->Record(fc->commandBuffer);
 
@@ -30,10 +26,6 @@ void Renderer::Draw() const {
     } else {
         uiPipeline->End();
     }
-}
-
-void Renderer::Update() const {
-    computePipeline->Update();
 }
 
 void Renderer::Begin() const {
@@ -152,8 +144,5 @@ void Renderer::Resize() const {
 
     vulkanContext->device.waitIdle();
 
-    raytracer->Resize(window->GetSize().first, window->GetSize().second);
     swapchain->Recreate();
-    computePipeline->Resize();
-    graphicsPipeline->SetImageView(computePipeline->GetImageView());
 }

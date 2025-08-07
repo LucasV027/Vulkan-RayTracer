@@ -10,11 +10,11 @@
 class GraphicsPipeline final : public Pipeline {
 public:
     GraphicsPipeline(const std::shared_ptr<VulkanContext>& context,
-                     const std::shared_ptr<Swapchain>& swapchain                     );
+                     const std::shared_ptr<Swapchain>& swapchain);
 
     ~GraphicsPipeline() override = default;
 
-    void Record(vk::CommandBuffer cb) const override;
+    void Record(vk::CommandBuffer cb) const;
 
     void Resize();
 

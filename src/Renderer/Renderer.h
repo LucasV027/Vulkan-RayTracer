@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ComputePipeline.h"
 #include "GraphicsPipeline.h"
 #include "ImGuiPipeline.h"
 #include "Vulkan/Base.h"
@@ -10,13 +9,12 @@
 class Renderer {
 public:
     explicit Renderer(const std::shared_ptr<Window>& window,
-                      const std::shared_ptr<VulkanContext>& context,
-                      const std::shared_ptr<Raytracer>& raytracer);
+                      const std::shared_ptr<VulkanContext>& context);
+
     ~Renderer();
 
     void Begin() const;
-    void Draw() const;
-    void Update() const;
+    void Draw(vk::ImageView displayImageView) const;
 
 private:
     FrameContext* BeginFrame() const;
@@ -38,8 +36,7 @@ private:
     std::shared_ptr<Window> window;
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Swapchain> swapchain;
-    std::shared_ptr<Raytracer> raytracer;
-    std::unique_ptr<ComputePipeline> computePipeline;
+
     std::unique_ptr<GraphicsPipeline> graphicsPipeline;
     std::unique_ptr<ImGuiPipeline> uiPipeline;
 };

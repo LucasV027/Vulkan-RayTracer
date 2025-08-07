@@ -17,7 +17,7 @@ public:
 
     void Begin() const;
     void End() const;
-    void Record(vk::CommandBuffer cb) const override;
+    void Record(vk::CommandBuffer cb) const;
 
 private:
     std::shared_ptr<Window> window;

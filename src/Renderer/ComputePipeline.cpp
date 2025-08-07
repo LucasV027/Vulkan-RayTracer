@@ -4,36 +4,75 @@
 #include "Vulkan/DescriptorSet.h"
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                                 const std::shared_ptr<Raytracer>& raytracer) :
+                                 const Raytracer& raytracer) :
     Pipeline(context),
-    raytracer(raytracer) {
+    context(context),
+    width(raytracer.GetWidth()),
+    height(raytracer.GetHeight()) {
     CreateResources();
+    CreateCommandPoolAndBuffer();
     CreateDescriptorSetLayout();
     CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
+    ComputeGroupCount();
 }
 
-void ComputePipeline::Record(const vk::CommandBuffer cb) const {
-    const auto gcX = (raytracer->GetWidth() + WORK_GROUP_SIZE_X - 1) / WORK_GROUP_SIZE_X;
-    const auto gcY = (raytracer->GetHeight() + WORK_GROUP_SIZE_Y - 1) / WORK_GROUP_SIZE_Y;
-    constexpr auto gcZ = (1 + WORK_GROUP_SIZE_Z - 1) / WORK_GROUP_SIZE_Z;
-
-    TransitionForCompute(cb);
-
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
-    cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet.get(), {});
-    cb.dispatch(gcX, gcY, gcZ);
-
-    TransitionForDisplay(cb);
+ComputePipeline::~ComputePipeline() {
+    context->device.freeCommandBuffers(commandPool, commandBuffer);
+    context->device.destroyCommandPool(commandPool);
 }
 
-void ComputePipeline::Resize() {
-    CreateDescriptorSet();
+void ComputePipeline::Dispatch() const {
+    commandBuffer.reset({});
+
+    commandBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    TransitionForCompute(commandBuffer);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet.get(), {});
+    commandBuffer.dispatch(groupCountX, groupCountY, GROUP_COUNT_Z);
+    TransitionForDisplay(commandBuffer);
+
+    commandBuffer.end();
+
+    const vk::SubmitInfo submitInfo = {
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+    };
+
+    context->graphicsQueue.submit(submitInfo);
+    context->graphicsQueue.waitIdle();
 }
 
-void ComputePipeline::Update() const {
-    uniformsBuffer->Update(CPU::ToGPU(raytracer->GetData()));
+void ComputePipeline::Upload(const Raytracer& raytracer) {
+    if (width != raytracer.GetWidth() || height != raytracer.GetHeight()) {
+        width = raytracer.GetWidth();
+        height = raytracer.GetHeight();
+        CreateResources();
+        CreateDescriptorSet();
+        ComputeGroupCount();
+    }
+
+    uniformsBuffer->Update(ToGPU(raytracer.GetData()));
+}
+
+void ComputePipeline::CreateCommandPoolAndBuffer() {
+    const vk::CommandPoolCreateInfo poolInfo = {
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = context->graphicsQueueIndex,
+
+    };
+
+    commandPool = context->device.createCommandPool(poolInfo);
+
+    const vk::CommandBufferAllocateInfo allocInfo = {
+        .commandPool = commandPool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+
+    commandBuffer = context->device.allocateCommandBuffers(allocInfo).front();
 }
 
 void ComputePipeline::CreateDescriptorSetLayout() {
@@ -73,8 +112,8 @@ void ComputePipeline::CreatePipeline() {
 
 void ComputePipeline::CreateResources() {
     outputImage = std::make_unique<Image>(vulkanContext,
-                                          raytracer->GetWidth(),
-                                          raytracer->GetHeight(),
+                                          width,
+                                          height,
                                           vk::Format::eR32G32B32A32Sfloat,
                                           vk::ImageUsageFlagBits::eStorage |
                                           vk::ImageUsageFlagBits::eSampled |
@@ -85,6 +124,11 @@ void ComputePipeline::CreateResources() {
     uniformsBuffer = std::make_unique<Buffer>(vulkanContext,
                                               sizeof(GPU::Data),
                                               vk::BufferUsageFlagBits::eUniformBuffer);
+}
+
+void ComputePipeline::ComputeGroupCount() {
+    groupCountX = (width + WORK_GROUP_SIZE_X - 1) / WORK_GROUP_SIZE_X;
+    groupCountY = (height + WORK_GROUP_SIZE_Y - 1) / WORK_GROUP_SIZE_Y;
 }
 
 void ComputePipeline::TransitionForCompute(const vk::CommandBuffer cmd) const {

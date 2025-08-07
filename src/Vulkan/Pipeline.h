@@ -10,8 +10,6 @@ public:
     explicit Pipeline(const std::shared_ptr<VulkanContext>& context);
     virtual ~Pipeline();
 
-    virtual void Record(vk::CommandBuffer cb) const = 0;
-
 protected:
     virtual void CreatePipelineLayout();
 

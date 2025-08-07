@@ -8,7 +8,6 @@ GraphicsPipeline::GraphicsPipeline(const std::shared_ptr<VulkanContext>& context
     swapchain(swapchain) {
     CreateSampler();
     CreateDescriptorSetLayout();
-    // CreateDescriptorSet();
     Pipeline::CreatePipelineLayout();
     CreatePipeline();
 }

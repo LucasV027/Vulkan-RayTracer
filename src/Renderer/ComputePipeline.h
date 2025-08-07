@@ -10,22 +10,22 @@
 class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                             const std::shared_ptr<Raytracer>& raytracer);
+                             const Raytracer& raytracer);
 
-    ~ComputePipeline() override = default;
+    ~ComputePipeline() override;
 
-    void Record(vk::CommandBuffer cb) const override;
-
-    void Resize();
-    void Update() const;
+    void Dispatch() const;
+    void Upload(const Raytracer& raytracer);
 
     vk::ImageView GetImageView() const { return outputImageView.get(); }
 
 private:
+    void CreateCommandPoolAndBuffer();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSet();
     void CreatePipeline();
     void CreateResources();
+    void ComputeGroupCount();
 
     void TransitionForCompute(vk::CommandBuffer cmd) const;
     void TransitionForDisplay(vk::CommandBuffer cmd) const;
@@ -33,10 +33,21 @@ private:
 private:
     static constexpr uint32_t WORK_GROUP_SIZE_X = 16;
     static constexpr uint32_t WORK_GROUP_SIZE_Y = 16;
-    static constexpr uint32_t WORK_GROUP_SIZE_Z = 1;
+    uint32_t groupCountX = 1;
+    uint32_t groupCountY = 1;
+    static constexpr uint32_t GROUP_COUNT_Z = 1;
+
+    // Vulkan
+    std::shared_ptr<VulkanContext> context;
+
+    vk::CommandPool commandPool;
+    vk::CommandBuffer commandBuffer;
 
     vk::UniqueDescriptorSet descriptorSet;
-    std::shared_ptr<Raytracer> raytracer;
+
+    // Cache
+    uint32_t width;
+    uint32_t height;
 
     // Resources
     std::unique_ptr<Image> outputImage;
