@@ -1,7 +1,7 @@
 #include "ImGuiPipeline.h"
 
 #include <imgui.h>
-#include <imgui_impl_vulkan.h>
+#include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
 ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
@@ -12,6 +12,8 @@ ImGuiPipeline::ImGuiPipeline(const std::shared_ptr<VulkanContext>& context,
       swapchain(swapchain) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImGui::StyleColorsDark();
 
@@ -65,6 +67,8 @@ void ImGuiPipeline::Record(const vk::CommandBuffer cb) const {
     const auto& fc = swapchain->GetCurrentFrameContext();
 
     ImGui::Render();
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
 
     constexpr vk::ClearValue clearValue{
         .color = std::array<float, 4>({{0.f, 0.f, 0.f, 0.f}}), // useless (only for API)

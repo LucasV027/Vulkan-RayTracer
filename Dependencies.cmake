@@ -14,14 +14,6 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG master
+        GIT_TAG docking
 )
 FetchContent_MakeAvailable(imgui)
-
-# Fetch ImGui backends (GLFW + Vulkan)
-FetchContent_Declare(
-        imgui_backends
-        GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG master
-)
-FetchContent_MakeAvailable(imgui_backends)
