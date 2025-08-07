@@ -14,14 +14,34 @@ layout (std140, set = 0, binding = 0) uniform uniformParameters {
 layout (set = 0, binding = 1, rgba32f) uniform readonly image2D accumulationImage;
 layout (set = 0, binding = 2, rgba32f) uniform writeonly image2D resultImage;
 
+/////////// Constants ///////////
+#define MAX_SPHERES 10
+#define MAX_RAY_BOUNCES 5
+#define FLT_MAX 3.402823466e+38
+#define FLT_MIN 1.175494351e-38
+#define EPSILON 1e-4
+
+/////////// Structs ///////////
 struct Ray {
     vec3 ori;
     vec3 dir;
 };
 
+struct Material {
+    vec3 emissionColor;
+    float emissionStrength;
+    vec3 color;
+};
+
 struct Sphere {
     vec3 pos;
     float rad;
+    Material mat;
+};
+
+struct Scene {
+    Sphere spheres[MAX_SPHERES];
+    uint count;
 };
 
 struct HitInfo {
@@ -29,8 +49,29 @@ struct HitInfo {
     float dst;
     vec3 hitPoint;
     vec3 normal;
+    Material mat;
 };
 
+/////////// Helpers ///////////
+float Random(inout uint state) {
+    state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    word = (word >> 22u) ^ word;
+    return word / 4294967295.0;
+}
+
+vec3 RandomInSemiSphere(vec3 normal, inout uint state) {
+    vec3 randomDir = normalize(vec3(
+                               Random(state) * 2.0 - 1.0,
+                               Random(state) * 2.0 - 1.0,
+                               Random(state) * 2.0 - 1.0
+                               ));
+
+    return dot(randomDir, normal) > 0.0 ? randomDir : -randomDir;
+}
+
+
+/////////// Core ///////////
 HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
 {
     HitInfo hitInfo;
@@ -49,6 +90,7 @@ HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
             hitInfo.dst = dst;
             hitInfo.hitPoint = ray.ori + dst * ray.dir;
             hitInfo.normal = normalize(hitInfo.hitPoint - sphere.pos);
+            hitInfo.mat = sphere.mat;
         }
     }
     return hitInfo;
@@ -73,6 +115,53 @@ Ray GenerateRay(ivec2 pixelCoord) {
     return ray;
 }
 
+HitInfo ClosestHit(Ray ray, const Scene scene) {
+    HitInfo closest;
+    closest.didCollide = false;
+    closest.dst = FLT_MAX;
+
+    for (int j = 0; j < scene.count; j++) {
+        HitInfo current = RaySphereIntersection(ray, scene.spheres[j]);
+        if (current.didCollide && current.dst < closest.dst) closest = current;
+    }
+
+    return closest;
+}
+
+vec3 Trace(Ray ray, const Scene scene, inout uint state) {
+    vec3 incomingLight = vec3(0.0);
+    vec3 rayColor = vec3(1.0);
+
+    for (int i = 0; i < MAX_RAY_BOUNCES; i++) {
+        HitInfo hitInfo = ClosestHit(ray, scene);
+
+        if (hitInfo.didCollide) {
+            ray.ori = hitInfo.hitPoint + hitInfo.normal * EPSILON;
+            ray.dir = RandomInSemiSphere(hitInfo.normal, state);
+
+            incomingLight += hitInfo.mat.emissionColor * rayColor * hitInfo.mat.emissionStrength;
+            rayColor *= hitInfo.mat.color;
+        } else {
+            break;
+        }
+    }
+
+    return incomingLight;
+}
+
+/////////// Scene ///////////
+Scene CreateScene() {
+    Scene scene;
+
+    scene.count = 3u;
+
+    scene.spheres[0] = Sphere(vec3(0.0, -1.0, -5.0), 1.0, Material(vec3(0.0), 0.0, vec3(1.0, 0.0, 0.0)));
+    scene.spheres[1] = Sphere(vec3(2.0, 0.0, -6.0), 1.0, Material(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0)));
+    scene.spheres[2] = Sphere(vec3(-2.0, 0.0, -10.0), 3.0, Material(vec3(1.0), 1.0, vec3(1.0)));
+
+    return scene;
+}
+
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(resultImage);
@@ -81,19 +170,10 @@ void main() {
     }
 
     Ray ray = GenerateRay(coord);
+    Scene scene = CreateScene();
+    uint seed = coord.y * size.x + coord.x;
 
-    Sphere sphere;
-    sphere.pos = vec3(0.0, 0.0, -5.0);
-    sphere.rad = 2.0;
+    vec3 color = Trace(ray, scene, seed);
 
-    HitInfo hit = RaySphereIntersection(ray, sphere);
-
-    vec4 color;
-    if (hit.didCollide) {
-        color = vec4(1.0, 0.2, 0.2, 1.0);
-    } else {
-        color = vec4(0.1, 0.2, 0.5, 1.0);
-    }
-
-    imageStore(resultImage, coord, color);
+    imageStore(resultImage, coord, vec4(color, 1.0));
 }
