@@ -38,6 +38,8 @@ add_executable(${PROJECT_NAME}
         src/Raytracer/Raytracer.cpp
         src/Raytracer/Raytracer.h
         src/Raytracer/Data.h
+        src/Raytracer/Camera.h
+        src/Raytracer/Camera.cpp
 )
 
 include(Dependencies.cmake)
@@ -66,4 +68,5 @@ target_sources(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE
         Vulkan::Vulkan
         glfw
+        glm
 )

@@ -17,3 +17,11 @@ FetchContent_Declare(
         GIT_TAG docking
 )
 FetchContent_MakeAvailable(imgui)
+
+# Fetch GLM
+FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG 1.0.1
+)
+FetchContent_MakeAvailable(glm)
