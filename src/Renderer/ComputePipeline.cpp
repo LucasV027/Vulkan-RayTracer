@@ -2,24 +2,45 @@
 
 #include "Vulkan/DescriptorSet.h"
 
-ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                                 const Raytracer& raytracer) :
+ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) :
     Pipeline(context),
     context(context),
-    width(raytracer.GetWidth()),
-    height(raytracer.GetHeight()) {
-    CreateResources();
+    currentWidth(-1),
+    currentHeight(-1) {
     CreateCommandPoolAndBuffer();
     CreateDescriptorSetLayout();
-    CreateDescriptorSet();
-    Pipeline::CreatePipelineLayout();
+    CreatePipelineLayout();
     CreatePipeline();
-    ComputeGroupCount();
 }
 
 ComputePipeline::~ComputePipeline() {
     context->device.freeCommandBuffers(commandPool, commandBuffer);
     context->device.destroyCommandPool(commandPool);
+}
+
+void ComputePipeline::Update(const Camera& camera, const uint32_t width, const uint32_t height) {
+    bool resize = false;
+    if (currentWidth != width || currentHeight != height) {
+        currentWidth = width;
+        currentHeight = height;
+
+        context->device.waitIdle();
+
+        CreateResources();
+        CreateDescriptorSet();
+        ComputeGroupCount();
+
+        pushData.frameIndex = 0;
+        resize = true;
+    }
+
+    if (camera.NeedsUpdate() || resize) {
+        cameraBuffer->Update(camera.GetData());
+        camera.ResetUpdate();
+        pushData.frameIndex = 0;
+    }
+
+    pushData.frameIndex++;
 }
 
 void ComputePipeline::Dispatch() const {
@@ -28,9 +49,12 @@ void ComputePipeline::Dispatch() const {
     commandBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     TransitionForCompute(commandBuffer);
+
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
+    commandBuffer.pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushData), &pushData);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, descriptorSet.get(), {});
-    commandBuffer.dispatch(groupCountX, groupCountY, GROUP_COUNT_Z);
+    commandBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+
     TransitionForDisplay(commandBuffer);
 
     commandBuffer.end();
@@ -44,28 +68,10 @@ void ComputePipeline::Dispatch() const {
     context->graphicsQueue.waitIdle();
 }
 
-void ComputePipeline::Upload(const Raytracer& raytracer) const {
-    uniformsBuffer->Update(raytracer.GetUniforms());
-}
-
-void ComputePipeline::OnResize(const uint32_t newWidth, const uint32_t newHeight) {
-    if (width == newWidth && height == newHeight) return;
-
-    width = newWidth;
-    height = newHeight;
-
-    context->device.waitIdle();
-
-    CreateResources();
-    CreateDescriptorSet();
-    ComputeGroupCount();
-}
-
 void ComputePipeline::CreateCommandPoolAndBuffer() {
     const vk::CommandPoolCreateInfo poolInfo = {
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = context->graphicsQueueIndex,
-
     };
 
     commandPool = context->device.createCommandPool(poolInfo);
@@ -91,7 +97,7 @@ void ComputePipeline::CreateDescriptorSet() {
     descriptorSet = std::move(AllocateDescriptorSets()[0]);
 
     DescriptorSetWriter writer;
-    writer.WriteBuffer(0, uniformsBuffer->GetHandle(), uniformsBuffer->GetSize())
+    writer.WriteBuffer(0, cameraBuffer->GetHandle(), cameraBuffer->GetSize())
           .WriteStorageImage(1, outputImageView.get())
           .Update(vulkanContext->device, descriptorSet.get());
 }
@@ -114,10 +120,27 @@ void ComputePipeline::CreatePipeline() {
     pipeline = vulkanContext->device.createComputePipeline({}, pipelineInfo).value;
 }
 
+void ComputePipeline::CreatePipelineLayout() {
+    constexpr vk::PushConstantRange pushConstants{
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        .offset = 0,
+        .size = sizeof(PushData)
+    };
+
+    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
+        .setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
+        .pSetLayouts = descriptorSetLayouts.data(),
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstants,
+    };
+
+    pipelineLayout = vulkanContext->device.createPipelineLayout(pipelineLayoutInfo);
+}
+
 void ComputePipeline::CreateResources() {
     outputImage = std::make_unique<Image>(vulkanContext,
-                                          width,
-                                          height,
+                                          currentWidth,
+                                          currentHeight,
                                           vk::Format::eR32G32B32A32Sfloat,
                                           vk::ImageUsageFlagBits::eStorage |
                                           vk::ImageUsageFlagBits::eSampled |
@@ -125,12 +148,12 @@ void ComputePipeline::CreateResources() {
 
     outputImageView = outputImage->CreateView();
 
-    uniformsBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(Uniforms), vk::BufferUsageFlagBits::eUniformBuffer);
+    cameraBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(Uniforms), vk::BufferUsageFlagBits::eUniformBuffer);
 }
 
 void ComputePipeline::ComputeGroupCount() {
-    groupCountX = (width + WORK_GROUP_SIZE_X - 1) / WORK_GROUP_SIZE_X;
-    groupCountY = (height + WORK_GROUP_SIZE_Y - 1) / WORK_GROUP_SIZE_Y;
+    groupCountX = (currentWidth + WORK_GROUP_SIZE_X - 1) / WORK_GROUP_SIZE_X;
+    groupCountY = (currentHeight + WORK_GROUP_SIZE_Y - 1) / WORK_GROUP_SIZE_Y;
 }
 
 void ComputePipeline::TransitionForCompute(const vk::CommandBuffer cmd) const {

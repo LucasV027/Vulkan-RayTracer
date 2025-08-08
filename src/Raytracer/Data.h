@@ -1,12 +1,10 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 
+#include <glm/glm.hpp>
+
 using uint = uint32_t;
-using vec2 = std::array<float, 2>;
-using vec3 = std::array<float, 3>;
-using vec4 = std::array<float, 4>;
 
 #define LAYOUT_STD140 alignas(16)
 #define STD140_ASSERT(Type, ExpectedSize) \
@@ -18,14 +16,14 @@ static_assert(sizeof(Type) == ExpectedSize, "Size of " #Type " must be " #Expect
 constexpr size_t MAX_SPHERES = 50;
 
 struct LAYOUT_STD140 Material {
-    vec3 emissionColor;
+    glm::vec3 emissionColor;
     float emissionStrength;
-    vec3 color;
+    glm::vec3 color;
     PAD(1);
 };
 
 struct LAYOUT_STD140 Sphere {
-    vec3 pos;
+    glm::vec3 pos;
     float rad;
     Material mat;
 };
@@ -36,25 +34,39 @@ struct LAYOUT_STD140 Scene {
     PAD(3);
 };
 
+struct PushData {
+    uint32_t frameIndex;
+};
+
 struct LAYOUT_STD140 Uniforms {
-    uint frameIndex;
+    glm::vec3 cameraPosition;
+    PAD(1);
+
+    glm::vec3 cameraForward;
+    PAD(1);
+
+    glm::vec3 cameraRight;
+    PAD(1);
+
+    glm::vec3 cameraUp;
     float fov;
-    PAD(2);
+};
 
-    vec3 cameraPosition;
+struct LAYOUT_STD140 CameraData {
+    glm::vec3 cameraPosition;
     PAD(1);
 
-    vec3 cameraForward;
+    glm::vec3 cameraForward;
     PAD(1);
 
-    vec3 cameraRight;
+    glm::vec3 cameraRight;
     PAD(1);
 
-    vec3 cameraUp;
-    PAD(1);
+    glm::vec3 cameraUp;
+    float fov;
 };
 
 STD140_ASSERT(Material, 32);
 STD140_ASSERT(Sphere, 48);
 STD140_ASSERT(Scene, 48 * MAX_SPHERES + 16);
-STD140_ASSERT(Uniforms, 80);
+STD140_ASSERT(Uniforms, 64);

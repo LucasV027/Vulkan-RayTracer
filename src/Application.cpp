@@ -5,46 +5,35 @@
 
 #include "Core/Log.h"
 
-Application::Application(const std::string& title, uint32_t width, uint32_t height) {
+Application::Application(const std::string& title, uint32_t width, uint32_t height) :
+    width(width),
+    height(height) {
     try {
         window = std::make_shared<Window>(width, height, title);
-        raytracer = std::make_shared<Raytracer>(width, height);
         vulkanContext = std::make_shared<VulkanContext>(window);
-        computePipeline = std::make_unique<ComputePipeline>(vulkanContext, *raytracer);
+        computePipeline = std::make_unique<ComputePipeline>(vulkanContext);
         renderer = std::make_unique<Renderer>(window, vulkanContext);
+        camera = std::make_unique<Camera>();
 
-        window->SetResizeCallback([&](const int w, const int h) {
-            raytracer->OnResize(w, h);
-            computePipeline->OnResize(w, h);
-            computePipeline->Upload(*raytracer);
+        window->SetResizeCallback([&](int w, int h) {
+            this->width = w;
+            this->height = h;
         });
-
-        start = std::chrono::steady_clock::now();
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
     }
 }
 
-void Application::Run() {
+void Application::Run() const {
     while (!window->ShouldClose()) {
-        if (std::chrono::steady_clock::now() - start > std::chrono::seconds(1)) {
-            start = std::chrono::steady_clock::now();
-            computePerSecond = computeCount;
-            computeCount = 0;
-            renderPerSecond = renderCount;
-            renderCount = 0;
-        }
-
         Update();
-        Compute();
         Render();
     }
 }
 
 Application::~Application() {
     // explicit order deletion
-    raytracer.reset();
     window.reset();
     renderer.reset();
     computePipeline.reset();
@@ -53,25 +42,17 @@ Application::~Application() {
 
 void Application::Update() const {
     window->PollEvents();
-    raytracer->Update();
-}
-
-void Application::Compute() {
-    computePipeline->Upload(*raytracer);
+    computePipeline->Update(*camera, width, height);
     computePipeline->Dispatch();
-    computeCount++;
 }
 
-void Application::Render() {
+void Application::Render() const {
     renderer->Begin();
     ImGui::Begin("[INFO]");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("CPS: %d | RPS: %d", computePerSecond, renderPerSecond);
-    ImGui::Text("Frame index: %d", raytracer->GetFrameIndex());
-    auto [width, height] = window->GetSize();
+    ImGui::Text("Frame index: %d", computePipeline->GetFrameIndex());
     ImGui::Text("Window size: (%d, %d)", width, height);
-    raytracer->RenderUI();
+    camera->DrawUI();
     ImGui::End();
     renderer->Draw(computePipeline->GetImageView());
-    renderCount++;
 }

@@ -2,13 +2,16 @@
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (std140, set = 0, binding = 0) uniform UniformBuffer {
+layout (push_constant) uniform PushData {
     uint frameIndex;
-    float fov;
+};
+
+layout (std140, set = 0, binding = 0) uniform UniformBuffer {
     vec3 cameraPosition;
     vec3 cameraForward;
     vec3 cameraRight;
     vec3 cameraUp;
+    float fov;
 };
 
 layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;

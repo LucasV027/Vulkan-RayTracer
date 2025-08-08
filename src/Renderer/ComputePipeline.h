@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Raytracer/Raytracer.h"
+#include "Raytracer/Camera.h"
 #include "Vulkan/Base.h"
 #include "Vulkan/Image.h"
 #include "Vulkan/Buffer.h"
@@ -9,22 +9,22 @@
 
 class ComputePipeline final : public Pipeline {
 public:
-    explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context,
-                             const Raytracer& raytracer);
+    explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
 
     ~ComputePipeline() override;
 
+    void Update(const Camera& camera, uint32_t width, uint32_t height);
     void Dispatch() const;
-    void Upload(const Raytracer& raytracer) const;
-    void OnResize(uint32_t newWidth, uint32_t newHeight);
 
     vk::ImageView GetImageView() const { return outputImageView.get(); }
+    uint32_t GetFrameIndex() const { return pushData.frameIndex; }
 
 private:
     void CreateCommandPoolAndBuffer();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSet();
     void CreatePipeline();
+    void CreatePipelineLayout() override;
     void CreateResources();
     void ComputeGroupCount();
 
@@ -34,9 +34,10 @@ private:
 private:
     static constexpr uint32_t WORK_GROUP_SIZE_X = 16;
     static constexpr uint32_t WORK_GROUP_SIZE_Y = 16;
+    static constexpr uint32_t WORK_GROUP_SIZE_Z = 1;
     uint32_t groupCountX = 1;
     uint32_t groupCountY = 1;
-    static constexpr uint32_t GROUP_COUNT_Z = 1;
+    uint32_t groupCountZ = 1;
 
     // Vulkan
     std::shared_ptr<VulkanContext> context;
@@ -47,11 +48,12 @@ private:
     vk::UniqueDescriptorSet descriptorSet;
 
     // Cache
-    uint32_t width;
-    uint32_t height;
+    uint32_t currentWidth;
+    uint32_t currentHeight;
 
     // Resources
-    std::unique_ptr<Buffer> uniformsBuffer; // Binding 0
-    std::unique_ptr<Image> outputImage;     // Binding 1
+    std::unique_ptr<Buffer> cameraBuffer; // Binding 0
+    std::unique_ptr<Image> outputImage;   // Binding 1
     vk::UniqueImageView outputImageView;
+    PushData pushData = {0};
 };
