@@ -14,6 +14,7 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
         computePipeline = std::make_unique<ComputePipeline>(vulkanContext);
         renderer = std::make_unique<Renderer>(window, vulkanContext);
         camera = std::make_unique<Camera>();
+        scene = std::make_unique<Scene>();
 
         window->SetResizeCallback([&](int w, int h) {
             this->width = w;
@@ -40,6 +41,16 @@ Application::~Application() {
     vulkanContext.reset();
 }
 
+void Application::DrawUI() const {
+    ImGui::Begin("[INFO]");
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Frame index: %d", computePipeline->GetFrameIndex());
+    ImGui::Text("Window size: (%d, %d)", width, height);
+    camera->DrawUI();
+    scene->DrawUI();
+    ImGui::End();
+}
+
 void Application::Update() const {
     window->PollEvents();
     computePipeline->Update(*camera, width, height);
@@ -48,11 +59,6 @@ void Application::Update() const {
 
 void Application::Render() const {
     renderer->Begin();
-    ImGui::Begin("[INFO]");
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Frame index: %d", computePipeline->GetFrameIndex());
-    ImGui::Text("Window size: (%d, %d)", width, height);
-    camera->DrawUI();
-    ImGui::End();
+    DrawUI();
     renderer->Draw(computePipeline->GetImageView());
 }

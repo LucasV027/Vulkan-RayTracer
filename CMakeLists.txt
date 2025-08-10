@@ -38,6 +38,9 @@ add_executable(${PROJECT_NAME}
         src/Raytracer/Data.h
         src/Raytracer/Camera.cpp
         src/Raytracer/Camera.h
+        src/Core/Base.h
+        src/Raytracer/Scene.cpp
+        src/Raytracer/Scene.h
 )
 
 include(Dependencies.cmake)

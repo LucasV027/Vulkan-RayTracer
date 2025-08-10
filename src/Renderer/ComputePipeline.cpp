@@ -148,7 +148,7 @@ void ComputePipeline::CreateResources() {
 
     outputImageView = outputImage->CreateView();
 
-    cameraBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(Uniforms), vk::BufferUsageFlagBits::eUniformBuffer);
+    cameraBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(CameraData), vk::BufferUsageFlagBits::eUniformBuffer);
 }
 
 void ComputePipeline::ComputeGroupCount() {

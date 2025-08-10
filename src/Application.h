@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Raytracer/Camera.h"
+#include "Raytracer/Scene.h"
 #include "Renderer/ComputePipeline.h"
 #include "Renderer/Renderer.h"
 #include "Window/Window.h"
@@ -16,6 +17,7 @@ public:
     ~Application();
 
 private:
+    void DrawUI() const;
     void Update() const;
     void Render() const;
 
@@ -24,7 +26,9 @@ private:
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Renderer> renderer;
     std::unique_ptr<ComputePipeline> computePipeline;
+
     std::unique_ptr<Camera> camera;
+    std::unique_ptr<Scene> scene;
 
     uint32_t width, height;
 };

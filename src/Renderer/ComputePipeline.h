@@ -7,6 +7,10 @@
 #include "Vulkan/Pipeline.h"
 #include "Vulkan/VulkanContext.h"
 
+struct PushData {
+    uint32_t frameIndex;
+};
+
 class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
