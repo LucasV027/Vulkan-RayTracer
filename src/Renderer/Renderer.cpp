@@ -7,6 +7,7 @@ Renderer::Renderer(const std::shared_ptr<Window>& window,
     window(window),
     vulkanContext(context) {
     swapchain = std::make_shared<Swapchain>(context, window);
+    computePipeline = std::make_unique<ComputePipeline>(context);
     graphicsPipeline = std::make_unique<GraphicsPipeline>(context, swapchain);
     uiPipeline = std::make_unique<ImGuiPipeline>(context, window, swapchain);
 }
@@ -15,9 +16,10 @@ Renderer::~Renderer() {
     if (vulkanContext->device) vulkanContext->device.waitIdle();
 }
 
-void Renderer::Draw(const vk::ImageView displayImageView) const {
+void Renderer::Draw() const {
     if (const auto fc = BeginFrame()) {
-        graphicsPipeline->SetImageView(displayImageView);
+        computePipeline->Dispatch(fc->commandBuffer);
+        graphicsPipeline->SetImageView(computePipeline->GetImageView());
         graphicsPipeline->Record(fc->commandBuffer);
         uiPipeline->Record(fc->commandBuffer);
 
@@ -26,6 +28,10 @@ void Renderer::Draw(const vk::ImageView displayImageView) const {
     } else {
         uiPipeline->End();
     }
+}
+
+void Renderer::Update(const Camera& camera, const Scene& scene, const uint32_t width, const uint32_t height) const {
+    computePipeline->Update(camera, scene, width, height);
 }
 
 void Renderer::Begin() const {

@@ -35,7 +35,6 @@ add_executable(${PROJECT_NAME}
         src/Vulkan/Image.h
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
-        src/Raytracer/Data.h
         src/Raytracer/Camera.cpp
         src/Raytracer/Camera.h
         src/Core/Base.h

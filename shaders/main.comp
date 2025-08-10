@@ -1,23 +1,9 @@
-#version 450
+#version 460
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-layout (push_constant) uniform PushData {
-    uint frameIndex;
-};
-
-layout (std140, set = 0, binding = 0) uniform UniformBuffer {
-    vec3 cameraPosition;
-    vec3 cameraForward;
-    vec3 cameraRight;
-    vec3 cameraUp;
-    float fov;
-};
-
-layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;
-
 /////////// Constants ///////////
-#define MAX_SPHERES 50
+#define MAX_SPHERES 20
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
@@ -53,6 +39,25 @@ struct HitInfo {
     vec3 hitPoint;
     vec3 normal;
     Material mat;
+};
+
+/////////// Uniforms ///////////
+layout (push_constant) uniform PushData {
+    uint frameIndex;
+};
+
+layout (std140, set = 0, binding = 0) uniform CameraBuffer {
+    vec3 cameraPosition;
+    vec3 cameraForward;
+    vec3 cameraRight;
+    vec3 cameraUp;
+    float fov;
+};
+
+layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;
+
+layout (std140, set = 0, binding = 2) uniform SceneBuffer {
+    Scene scene;
 };
 
 /////////// Helpers ///////////
@@ -131,7 +136,7 @@ Ray GenerateRay(ivec2 pixelCoord, inout uint state) {
     return Ray(cameraPosition, rayDir);
 }
 
-HitInfo ClosestHit(Ray ray, const Scene scene) {
+HitInfo ClosestHit(Ray ray) {
     HitInfo closest;
     closest.didCollide = false;
     closest.dst = FLT_MAX;
@@ -155,12 +160,12 @@ vec3 AmbientLight(Ray ray) {
     return mix(horizonColor, skyColor, t);
 }
 
-vec3 Trace(Ray ray, const Scene scene, inout uint state) {
+vec3 Trace(Ray ray, inout uint state) {
     vec3 incomingLight = vec3(0.0);
     vec3 rayColor = vec3(1.0);
 
     for (int i = 0; i < MAX_RAY_BOUNCES; i++) {
-        HitInfo hitInfo = ClosestHit(ray, scene);
+        HitInfo hitInfo = ClosestHit(ray);
 
         if (hitInfo.didCollide) {
             ray.ori = hitInfo.hitPoint + hitInfo.normal * EPSILON;
@@ -177,18 +182,6 @@ vec3 Trace(Ray ray, const Scene scene, inout uint state) {
     return incomingLight;
 }
 
-/////////// Scene ///////////
-Scene CreateScene() {
-    Scene scene;
-
-    scene.count = 3u;
-
-    scene.spheres[0] = Sphere(vec3(0.0, 0.0, -5.0), 1.0, Material(vec3(0.0), 0.0, vec3(1.0, 0.0, 0.0))); // Red
-    scene.spheres[1] = Sphere(vec3(9.0, -40.0, -8.0), 30.0, Material(vec3(1.0, 1.0, 0.7), 5.0, vec3(0.0))); // Sun
-    scene.spheres[2] = Sphere(vec3(0.0, 52.0, -6.0), 50.0, Material(vec3(1.0), 0.0, vec3(0.2))); // Grey (floor)
-
-    return scene;
-}
 
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -197,9 +190,8 @@ void main() {
 
     uint seed = coord.y * size.x + coord.x + frameIndex * 41848451;
 
-    Scene scene = CreateScene();
     Ray ray = GenerateRay(coord, seed);
-    vec3 color = Trace(ray, scene, seed);
+    vec3 color = Trace(ray, seed);
 
     StorePixel(coord, color);
 }

@@ -4,7 +4,7 @@
 
 #include "Core/Base.h"
 
-constexpr size_t MAX_SPHERES = 50;
+constexpr size_t MAX_SPHERES = 20;
 constexpr float MAX_POS = 100.f;
 constexpr float MIN_POS = -100.f;
 constexpr float MIN_SPHERE_RADIUS = 1.0f;
@@ -38,12 +38,15 @@ public:
 
     void DrawUI();
 
+    bool AddSphere();
+    void RemoveSphere(uint32_t idx);
+
     const SceneData& GetData() const { return sceneData; }
     bool NeedsUpdate() const { return needsUpdate; }
 
     void ResetUpdate() const { needsUpdate = false; }
 
 private:
-    SceneData sceneData;
+    SceneData sceneData{};
     mutable bool needsUpdate = true;
 };

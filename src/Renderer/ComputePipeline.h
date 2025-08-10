@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Raytracer/Camera.h"
+#include "Raytracer/Scene.h"
 #include "Vulkan/Base.h"
 #include "Vulkan/Image.h"
 #include "Vulkan/Buffer.h"
@@ -15,16 +16,15 @@ class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
 
-    ~ComputePipeline() override;
+    ~ComputePipeline() override = default;
 
-    void Update(const Camera& camera, uint32_t width, uint32_t height);
-    void Dispatch() const;
+    void Update(const Camera& camera, const Scene& scene, uint32_t width, uint32_t height);
+    void Dispatch(vk::CommandBuffer commandBuffer) const;
 
     vk::ImageView GetImageView() const { return outputImageView.get(); }
     uint32_t GetFrameIndex() const { return pushData.frameIndex; }
 
 private:
-    void CreateCommandPoolAndBuffer();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSet();
     void CreatePipeline();
@@ -46,9 +46,6 @@ private:
     // Vulkan
     std::shared_ptr<VulkanContext> context;
 
-    vk::CommandPool commandPool;
-    vk::CommandBuffer commandBuffer;
-
     vk::UniqueDescriptorSet descriptorSet;
 
     // Cache
@@ -58,6 +55,9 @@ private:
     // Resources
     std::unique_ptr<Buffer> cameraBuffer; // Binding 0
     std::unique_ptr<Image> outputImage;   // Binding 1
+    std::unique_ptr<Buffer> sceneBuffer;  // Binding 2
+    std::unique_ptr<Buffer> stagingBuffer;
+    mutable bool uploadStaging = false;
     vk::UniqueImageView outputImageView;
     PushData pushData = {0};
 };
