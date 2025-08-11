@@ -19,9 +19,6 @@ public:
     uint32_t graphicsQueueIndex = -1;
     vk::Queue graphicsQueue = nullptr;
 
-    uint32_t computeQueueIndex = -1;
-    vk::Queue computeQueue = nullptr;
-
     vk::DescriptorPool mainDescriptorPool = nullptr;
 
 private:

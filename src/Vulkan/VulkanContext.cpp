@@ -111,7 +111,6 @@ void VulkanContext::PickPhysicalDevice() {
     std::vector<vk::PhysicalDevice> gpus = instance.enumeratePhysicalDevices();
     if (gpus.empty()) throw std::runtime_error("No Vulkan-compatible GPU found.");
 
-
     for (const auto& gpu : gpus) {
         vk::PhysicalDeviceProperties properties = gpu.getProperties();
         if (properties.apiVersion < vk::ApiVersion13) {
@@ -121,40 +120,20 @@ void VulkanContext::PickPhysicalDevice() {
 
         auto queueFamilies = gpu.getQueueFamilyProperties();
 
-        bool foundGraphics = false;
-        bool foundCompute = false;
-
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
             const auto& queueFamily = queueFamilies[i];
             const bool supportsGraphics = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
-            const bool supportsCompute = static_cast<bool>(queueFamily.queueFlags & vk::QueueFlagBits::eCompute);
 
-            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, surface) && !foundGraphics) {
+            if (supportsGraphics && gpu.getSurfaceSupportKHR(i, surface)) {
                 graphicsQueueIndex = i;
-                foundGraphics = true;
+                physicalDevice = gpu;
+                LOGI("Selected GPU: '{}'", properties.deviceName.data());
+                return;
             }
-
-            // Prefer a compute-only queue
-            if (supportsCompute && !(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) && !foundCompute) {
-                computeQueueIndex = i;
-                foundCompute = true;
-            }
-        }
-
-        if (!foundCompute && foundGraphics) {
-            computeQueueIndex = graphicsQueueIndex;
-            foundCompute = true;
-            LOGI("No dedicated compute queue found, fallback to graphics queue");
-        }
-
-        if (foundGraphics && foundCompute) {
-            physicalDevice = gpu;
-            LOGI("Selected GPU: '{}'", properties.deviceName.data());
-            return;
         }
     }
 
-    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics + compute support).");
+    throw std::runtime_error("No suitable GPU found (with Vulkan 1.3 + graphics support).");
 }
 
 void VulkanContext::CreateLogicalDevice() {
@@ -189,24 +168,18 @@ void VulkanContext::CreateLogicalDevice() {
         {}, {.synchronization2 = true, .dynamicRendering = true}, {.extendedDynamicState = true}
     };
 
-    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {
-        graphicsQueueIndex, computeQueueIndex
-    };
 
     float queuePriority = 1.0f;
-    for (uint32_t queueFamily : uniqueQueueFamilies) {
-        queueCreateInfos.push_back(vk::DeviceQueueCreateInfo{
-            .queueFamilyIndex = queueFamily,
-            .queueCount = 1,
-            .pQueuePriorities = &queuePriority
-        });
-    }
+    vk::DeviceQueueCreateInfo queueCreateInfo{
+        .queueFamilyIndex = graphicsQueueIndex,
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority
+    };
 
     vk::DeviceCreateInfo deviceCreateInfo{
         .pNext = &enabledFeatures.get<vk::PhysicalDeviceFeatures2>(),
-        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-        .pQueueCreateInfos = queueCreateInfos.data(),
+        .queueCreateInfoCount = 1u,
+        .pQueueCreateInfos = &queueCreateInfo,
         .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
         .ppEnabledExtensionNames = requiredExtensions.data()
     };
@@ -215,7 +188,6 @@ void VulkanContext::CreateLogicalDevice() {
     device = physicalDevice.createDevice(deviceCreateInfo);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
     graphicsQueue = device.getQueue(graphicsQueueIndex, 0);
-    computeQueue = device.getQueue(computeQueueIndex, 0);
 }
 
 void VulkanContext::CreateDescriptorPool() {
