@@ -12,8 +12,13 @@ ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) 
     CreatePipeline();
 }
 
-void ComputePipeline::Update(const Camera& camera, const Scene& scene, const uint32_t width, const uint32_t height) {
+void ComputePipeline::Update(const Raytracer& raytracer) {
     bool resize = false;
+    const auto width = raytracer.GetWidth();
+    const auto height = raytracer.GetHeight();
+    const auto& camera = raytracer.GetCamera();
+    const auto& scene = raytracer.GetScene();
+
     if (currentWidth != width || currentHeight != height) {
         currentWidth = width;
         currentHeight = height;

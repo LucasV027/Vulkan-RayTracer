@@ -16,7 +16,7 @@ public:
 
     void Begin() const;
     void Draw() const;
-    void Update(const Camera& camera, const Scene& scene, uint32_t width, uint32_t height) const;
+    void Update(const Raytracer& raytracer) const;
 
 private:
     FrameContext* BeginFrame() const;

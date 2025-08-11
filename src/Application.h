@@ -3,12 +3,11 @@
 #include <cstdint>
 #include <string>
 
-#include "Controller/CameraController.h"
-#include "Raytracer/Camera.h"
-#include "Raytracer/Scene.h"
-#include "Renderer/Renderer.h"
 #include "Window/Window.h"
 #include "Vulkan/VulkanContext.h"
+#include "Renderer/Renderer.h"
+#include "Raytracer/Raytracer.h"
+#include "Controller/CameraController.h"
 
 class Application {
 public:
@@ -26,8 +25,6 @@ private:
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Renderer> renderer;
 
-    std::shared_ptr<Camera> camera;
-    std::unique_ptr<Scene> scene;
-
+    std::unique_ptr<Raytracer> raytracer;
     std::unique_ptr<CameraController> cameraController;
 };

@@ -30,8 +30,8 @@ void Renderer::Draw() const {
     }
 }
 
-void Renderer::Update(const Camera& camera, const Scene& scene, const uint32_t width, const uint32_t height) const {
-    computePipeline->Update(camera, scene, width, height);
+void Renderer::Update(const Raytracer& raytracer) const {
+    computePipeline->Update(raytracer);
 }
 
 void Renderer::Begin() const {

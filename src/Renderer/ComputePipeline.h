@@ -1,7 +1,6 @@
 #pragma once
 
-#include "Raytracer/Camera.h"
-#include "Raytracer/Scene.h"
+#include "Raytracer/Raytracer.h"
 #include "Vulkan/Base.h"
 #include "Vulkan/Image.h"
 #include "Vulkan/Buffer.h"
@@ -18,7 +17,7 @@ public:
 
     ~ComputePipeline() override = default;
 
-    void Update(const Camera& camera, const Scene& scene, uint32_t width, uint32_t height);
+    void Update(const Raytracer& raytracer);
     void Dispatch(vk::CommandBuffer commandBuffer) const;
 
     vk::ImageView GetImageView() const { return outputImageView.get(); }
