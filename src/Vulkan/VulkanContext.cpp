@@ -10,33 +10,61 @@ VulkanContext::VulkanContext(const std::shared_ptr<Window>& window) : windowRef(
     PickPhysicalDevice();
     CreateLogicalDevice();
     CreateDescriptorPool();
+    CreateCommandPool();
 }
 
 VulkanContext::~VulkanContext() {
     if (device) {
-        if (mainDescriptorPool) {
-            device.destroyDescriptorPool(mainDescriptorPool);
-            mainDescriptorPool = nullptr;
-        }
+        if (mainDescriptorPool) device.destroyDescriptorPool(mainDescriptorPool);
+        if (commandPool) device.destroyCommandPool(commandPool);
 
         device.destroy();
-        device = nullptr;
-    }
-
-    if (surface && instance) {
-        instance.destroySurfaceKHR(surface);
-        surface = nullptr;
-    }
-
-    if (debugCallback && instance) {
-        instance.destroyDebugUtilsMessengerEXT(debugCallback, nullptr);
-        debugCallback = nullptr;
     }
 
     if (instance) {
+        if (surface) instance.destroySurfaceKHR(surface);
+        if (debugCallback) instance.destroyDebugUtilsMessengerEXT(debugCallback, nullptr);
+
         instance.destroy();
-        instance = nullptr;
     }
+}
+
+vk::CommandBuffer VulkanContext::BeginSingleTimeCommands() const {
+    const vk::CommandBufferAllocateInfo allocInfo{
+        .commandPool = commandPool,
+        .commandBufferCount = 1,
+    };
+
+    vk::CommandBuffer commandBuffer;
+    if (device.allocateCommandBuffers(&allocInfo, &commandBuffer) != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to allocate command buffers!");
+    }
+
+    constexpr vk::CommandBufferBeginInfo beginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    };
+
+    commandBuffer.begin(beginInfo);
+
+    return commandBuffer;
+}
+
+void VulkanContext::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const {
+    commandBuffer.end();
+
+    const vk::SubmitInfo submitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+    };
+
+    const auto result = graphicsQueue.submit(1, &submitInfo, nullptr);
+    if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to submit command buffer !");
+    }
+
+    graphicsQueue.waitIdle();
+
+    device.freeCommandBuffers(commandPool, 1, &commandBuffer);
 }
 
 void VulkanContext::CreateInstance() {
@@ -213,4 +241,13 @@ void VulkanContext::CreateDescriptorPool() {
     };
 
     mainDescriptorPool = device.createDescriptorPool(poolInfo);
+}
+
+void VulkanContext::CreateCommandPool() {
+    const vk::CommandPoolCreateInfo poolInfo = {
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsQueueIndex,
+    };
+
+    commandPool = device.createCommandPool(poolInfo);
 }

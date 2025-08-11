@@ -20,6 +20,11 @@ public:
     vk::Queue graphicsQueue = nullptr;
 
     vk::DescriptorPool mainDescriptorPool = nullptr;
+    vk::CommandPool commandPool = nullptr;
+
+public:
+    vk::CommandBuffer BeginSingleTimeCommands() const;
+    void EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const;
 
 private:
     void CreateInstance();
@@ -27,6 +32,7 @@ private:
     void PickPhysicalDevice();
     void CreateLogicalDevice();
     void CreateDescriptorPool();
+    void CreateCommandPool();
 
 private:
     std::shared_ptr<Window> windowRef;
