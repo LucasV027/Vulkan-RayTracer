@@ -5,7 +5,6 @@
 #include <utility>
 
 #define GLFW_INCLUDE_VULKAN
-#include <functional>
 #include <GLFW/glfw3.h>
 
 class Window {
@@ -13,22 +12,33 @@ public:
     Window(uint32_t width, uint32_t height, const std::string& title);
     ~Window();
 
+    // Poll / Wait events
     void PollEvents() const;
     void WaitEvents() const;
     void WaitWhileMinimized() const;
 
-    std::pair<uint32_t, uint32_t> GetSize() const;
+    // Getters
+    uint32_t GetWidth() const;
+    uint32_t GetHeight() const;
     const char* GetTitle() const;
+
     GLFWwindow* Handle() const;
 
     bool ShouldClose() const;
     bool IsMinimized() const;
 
-    void SetResizeCallback(const std::function<void(int width, int height)>& callback);
+    // Input
+    bool IsKeyDown(int key) const;
+    bool IsMouseButtonDown(int button) const;
+    std::pair<double, double> GetMousePos() const;
+    double GetScrollOffset() const;
+
+    void SetMouseLock(bool locked) const;
 
 private:
     GLFWwindow* handle = nullptr;
-    std::function<void(int, int)> resizeCallback;
+    uint32_t width, height;
+    mutable double scrollOffset;
 
     inline static int windowCount = 0;
 };

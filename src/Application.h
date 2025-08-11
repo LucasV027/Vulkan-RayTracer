@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "Controller/CameraController.h"
 #include "Raytracer/Camera.h"
 #include "Raytracer/Scene.h"
 #include "Renderer/Renderer.h"
@@ -13,7 +14,7 @@ class Application {
 public:
     Application(const std::string& title, uint32_t width, uint32_t height);
     void Run() const;
-    ~Application();
+    ~Application() = default;
 
 private:
     void DrawUI() const;
@@ -25,8 +26,8 @@ private:
     std::shared_ptr<VulkanContext> vulkanContext;
     std::shared_ptr<Renderer> renderer;
 
-    std::unique_ptr<Camera> camera;
+    std::shared_ptr<Camera> camera;
     std::unique_ptr<Scene> scene;
 
-    uint32_t width, height;
+    std::unique_ptr<CameraController> cameraController;
 };

@@ -36,7 +36,8 @@ void Swapchain::SetCurrentImageIndex(uint32_t index) { currentImageIndex = index
 void Swapchain::ResetCurrentImageIndex() { currentImageIndex.reset(); }
 
 void Swapchain::CreateSwapchain() {
-    const vk::SurfaceCapabilitiesKHR capabilities = vulkanContext->physicalDevice.getSurfaceCapabilitiesKHR(vulkanContext->surface);
+    const vk::SurfaceCapabilitiesKHR capabilities = vulkanContext->physicalDevice.getSurfaceCapabilitiesKHR(
+        vulkanContext->surface);
     auto formats = vulkanContext->physicalDevice.getSurfaceFormatsKHR(vulkanContext->surface);
     auto presentModes = vulkanContext->physicalDevice.getSurfacePresentModesKHR(vulkanContext->surface);
 
@@ -58,7 +59,8 @@ void Swapchain::CreateSwapchain() {
         }
     }
 
-    auto [width, height] = window->GetSize();
+    const auto width = window->GetWidth();
+    const auto height = window->GetHeight();
     if (capabilities.currentExtent.width != UINT32_MAX) {
         extent = capabilities.currentExtent;
     } else {
