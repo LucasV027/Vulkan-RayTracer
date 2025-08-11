@@ -4,7 +4,6 @@
 
 ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) :
     Pipeline(context),
-    context(context),
     currentWidth(-1),
     currentHeight(-1) {
     CreateDescriptorSetLayout();
@@ -23,7 +22,7 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
         currentWidth = width;
         currentHeight = height;
 
-        context->device.waitIdle();
+        vulkanContext->device.waitIdle();
 
         CreateResources();
         CreateDescriptorSet();

@@ -14,7 +14,6 @@ struct PushData {
 class ComputePipeline final : public Pipeline {
 public:
     explicit ComputePipeline(const std::shared_ptr<VulkanContext>& context);
-
     ~ComputePipeline() override = default;
 
     void Update(const Raytracer& raytracer);
@@ -35,28 +34,28 @@ private:
     void TransitionForDisplay(vk::CommandBuffer cmd) const;
 
 private:
+    // Constants
     static constexpr uint32_t WORK_GROUP_SIZE_X = 16;
     static constexpr uint32_t WORK_GROUP_SIZE_Y = 16;
     static constexpr uint32_t WORK_GROUP_SIZE_Z = 1;
-    uint32_t groupCountX = 1;
-    uint32_t groupCountY = 1;
-    uint32_t groupCountZ = 1;
-
-    // Vulkan
-    std::shared_ptr<VulkanContext> context;
-
-    vk::UniqueDescriptorSet descriptorSet;
 
     // Cache
     uint32_t currentWidth;
     uint32_t currentHeight;
+    uint32_t groupCountX = 1;
+    uint32_t groupCountY = 1;
+    uint32_t groupCountZ = 1;
 
     // Resources
     std::unique_ptr<Buffer> cameraBuffer; // Binding 0
     std::unique_ptr<Image> outputImage;   // Binding 1
     std::unique_ptr<Buffer> sceneBuffer;  // Binding 2
-    std::unique_ptr<Buffer> stagingBuffer;
-    mutable bool uploadStaging = false;
-    vk::UniqueImageView outputImageView;
     PushData pushData = {0};
+
+    mutable bool uploadStaging = false;
+    std::unique_ptr<Buffer> stagingBuffer;
+
+    vk::UniqueImageView outputImageView;
+
+    vk::UniqueDescriptorSet descriptorSet;
 };
