@@ -1,5 +1,6 @@
 #include "Window.h"
 
+#include <imgui.h>
 #include <stdexcept>
 
 Window::Window(const uint32_t width, const uint32_t height, const std::string& title) : width(width), height(height) {
@@ -65,7 +66,10 @@ bool Window::ShouldClose() const { return glfwWindowShouldClose(handle); }
 bool Window::IsMinimized() const { return width == 0 && height == 0; }
 
 bool Window::IsKeyDown(const int key) const { return glfwGetKey(handle, key) == GLFW_PRESS; }
-bool Window::IsMouseButtonDown(int button) const { return glfwGetMouseButton(handle, button) == GLFW_PRESS; }
+
+bool Window::IsMouseButtonDown(const int button) const {
+    return !ImGui::GetIO().WantCaptureMouse && (glfwGetMouseButton(handle, button) == GLFW_PRESS);
+}
 
 std::pair<double, double> Window::GetMousePos() const {
     double xPos, yPos;

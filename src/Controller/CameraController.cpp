@@ -64,8 +64,8 @@ void CameraController::HandleMouse(const float dt) {
     xOffset *= config.mouseSensitivity * dt;
     yOffset *= config.mouseSensitivity * dt;
 
-    yaw += xOffset;
-    pitch += yOffset;
+    yaw += static_cast<float>(xOffset);
+    pitch += static_cast<float>(yOffset);
 
     pitch = glm::clamp(pitch, -89.0f, 89.0f);
 
@@ -76,9 +76,9 @@ void CameraController::HandleMouse(const float dt) {
     const float pitchRad = glm::radians(pitch);
 
     glm::vec3 newForward;
-    newForward.x = cos(yawRad) * cos(pitchRad);
-    newForward.y = sin(pitchRad);
-    newForward.z = sin(yawRad) * cos(pitchRad);
+    newForward.x = cosf(yawRad) * cosf(pitchRad);
+    newForward.y = sinf(pitchRad);
+    newForward.z = sinf(yawRad) * cosf(pitchRad);
 
     camera->SetOrientation(glm::normalize(newForward));
 }
