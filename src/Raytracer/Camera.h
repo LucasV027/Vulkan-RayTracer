@@ -23,7 +23,7 @@ public:
     explicit Camera(const glm::vec3& position = {0.f, 0.f, 0.f},
                     const glm::vec3& up = {0.f, 1.f, 0.f},
                     const glm::vec3& orientation = {0.f, 0.f, -1.f},
-                    float fovDeg = 45.f);
+                    float fovDeg = 90.f);
 
     ~Camera() = default;
 

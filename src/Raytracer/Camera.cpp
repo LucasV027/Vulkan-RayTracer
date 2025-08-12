@@ -18,26 +18,42 @@ Camera::Camera(const glm::vec3& position,
 }
 
 void Camera::DrawUI() {
+    static float baseFov = fovDeg;
+    static glm::vec3 baseCameraPos = cameraData.cameraPosition;
+    static glm::vec3 baseCameraForward = cameraData.cameraForward;
+
     if (ImGui::TreeNode("Camera")) {
-        ImGui::NewLine();
-        // Position controls
+        ImGui::Indent();
+
+        ImGui::SeparatorText("Transform");
         if (ImGui::DragFloat3("Position", glm::value_ptr(cameraData.cameraPosition), 0.1f)) {
-            needsUpdate = true;
+            SetPosition(cameraData.cameraPosition);
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Reset##Position")) {
+            SetPosition(baseCameraPos);
         }
 
-        // Forward vector control
-        glm::vec3 forward = cameraData.cameraForward;
-        if (ImGui::DragFloat3("Forward", glm::value_ptr(forward), 0.01f)) {
-            SetOrientation(forward);
-            needsUpdate = true;
+        if (ImGui::DragFloat3("Forward", glm::value_ptr(cameraData.cameraForward), 0.01f)) {
+            SetOrientation(cameraData.cameraForward);
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Reset##Forward")) {
+            SetOrientation(baseCameraForward);
         }
 
-        // FOV control
+        ImGui::Spacing();
+
+        ImGui::SeparatorText("Lens");
         if (ImGui::SliderFloat("FOV", &fovDeg, 1.0f, 179.0f, "%.1f°")) {
             SetFov(fovDeg);
-            needsUpdate = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Reset##Fov")) {
+            SetFov(baseFov);
         }
 
+        ImGui::Unindent();
         ImGui::TreePop();
     }
 }

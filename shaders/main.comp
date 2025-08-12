@@ -17,9 +17,10 @@ struct Ray {
 };
 
 struct Material {
+    vec3 color;
+    float smoothness;
     vec3 emissionColor;
     float emissionStrength;
-    vec3 color;
 };
 
 struct Sphere {
@@ -169,7 +170,9 @@ vec3 Trace(Ray ray, inout uint state) {
 
         if (hitInfo.didCollide) {
             ray.ori = hitInfo.hitPoint + hitInfo.normal * EPSILON;
-            ray.dir = RandomInSemiSphere(hitInfo.normal, state);
+            vec3 diffuseDir = normalize(hitInfo.normal + RandomInSemiSphere(hitInfo.normal, state));
+            vec3 specularDir = reflect(ray.dir, hitInfo.normal);
+            ray.dir = mix(diffuseDir, specularDir, hitInfo.mat.smoothness);
 
             incomingLight += hitInfo.mat.emissionColor * rayColor * hitInfo.mat.emissionStrength;
             rayColor *= hitInfo.mat.color;

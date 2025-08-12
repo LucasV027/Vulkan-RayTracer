@@ -6,82 +6,158 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
 
-#include "Core/Log.h"
+bool Material::DrawUI() {
+    bool changed = false;
 
-Scene::Scene() {
-    sceneData.count = 3u;
+    ImGui::SeparatorText("Material");
+    {
+        ImGui::Indent();
+        ImGui::SeparatorText("Object");
+        {
+            ImGui::Indent();
+            changed |= ImGui::ColorEdit3("Color", glm::value_ptr(color));
+            changed |= ImGui::SliderFloat("Smoothness", &smoothness, MIN_SMOOTHNESS, MAX_SMOOTHNESS);
+            ImGui::Unindent();
+        }
+        ImGui::Unindent();
+    }
 
-    sceneData.spheres[0] = Sphere(glm::vec3(0.0, 0.0, -5.0), 1.0,
-                                  Material(glm::vec3(0.0), 0.0, glm::vec3(1.0, 0.0, 0.0)));
-    sceneData.spheres[1] = Sphere(glm::vec3(9.0, -40.0, -8.0), 30.0,
-                                  Material(glm::vec3(1.0, 1.0, 0.7), 5.0, glm::vec3(0.0)));
-    sceneData.spheres[2] = Sphere(glm::vec3(0.0, 52.0, -6.0), 50.0, Material(glm::vec3(1.0), 0.0, glm::vec3(0.2)));
+    ImGui::Spacing();
+
+    {
+        ImGui::Indent();
+        ImGui::SeparatorText("Emission");
+        {
+            ImGui::Indent();
+            changed |= ImGui::ColorEdit3("Color##", glm::value_ptr(emissionColor));
+            changed |= ImGui::SliderFloat("Strength", &emissionStrength, MIN_EMISSION_STRENGTH, MAX_EMISSION_STRENGTH);
+            ImGui::Unindent();
+        }
+        ImGui::Unindent();
+    }
+
+    return changed;
+}
+
+bool Sphere::DrawUI() {
+    bool changed = false;
+
+    ImGui::SeparatorText("Geometry");
+    {
+        ImGui::Indent();
+        changed |= ImGui::SliderFloat3("Position", glm::value_ptr(pos), MIN_POS, MAX_POS);
+        changed |= ImGui::SliderFloat("Radius", &rad, MIN_SPHERE_RADIUS, MAX_SPHERE_RADIUS);
+        ImGui::Unindent();
+    }
+
+    changed |= mat.DrawUI();
+
+    ImGui::NewLine();
+
+    return changed;
 }
 
 void Scene::DrawUI() {
     if (ImGui::TreeNode("Scene")) {
-        if (ImGui::Button("Add Sphere")) {
-            if (!AddSphere()) {
-                LOGE("Failed to add sphere");
-            } else {
+        ImGui::Text("Objects[%u]", sceneData.count);
+        if (!Full()) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("+")) {
+                AddSphere();
                 needsUpdate = true;
             }
         }
 
-        if (ImGui::TreeNode(std::format("Data [{}]", sceneData.count).c_str())) {
-            for (uint32_t i = 0; i < sceneData.count; i++) {
-                if (ImGui::TreeNode(std::format("Sphere [{}]", i).c_str())) {
-                    auto& [pos, rad, mat] = sceneData.spheres[i];
+        ImGui::Separator();
 
-                    needsUpdate |= ImGui::SliderFloat3("Position", glm::value_ptr(pos), MIN_POS, MAX_POS);
-                    needsUpdate |= ImGui::SliderFloat("Radius", &rad, MIN_SPHERE_RADIUS, MAX_SPHERE_RADIUS);
-                    if (ImGui::TreeNode("Material")) {
-                        needsUpdate |= ImGui::ColorEdit3("Object Color", glm::value_ptr(mat.color));
-                        needsUpdate |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.emissionColor));
-                        needsUpdate |= ImGui::SliderFloat("Emission Strength", &mat.emissionStrength,
-                                                          MIN_EMISSION_STRENGTH,
-                                                          MAX_EMISSION_STRENGTH);
-                        ImGui::TreePop();
-                    }
+        ImGui::Indent();
 
-                    if (ImGui::Button("Remove")) {
-                        RemoveSphere(i);
-                        needsUpdate = true;
-                    }
-                    ImGui::NewLine();
-
-
-                    ImGui::TreePop();
-                }
+        for (uint32_t i = 0; i < sceneData.count; i++) {
+            ImGui::PushID(i);
+            if (ImGui::SmallButton("x")) {
+                RemoveSphere(i);
+                needsUpdate = true;
             }
+            ImGui::PopID();
+            ImGui::SameLine();
 
-            ImGui::TreePop();
+            if (ImGui::TreeNode(std::format("Sphere[{}]", i).c_str())) {
+                needsUpdate |= sceneData.spheres[i].DrawUI();
+                ImGui::TreePop();
+            }
         }
-
         ImGui::TreePop();
+
+        ImGui::Unindent();
     }
 }
 
-glm::vec3 RandomColor() {
-    return glm::normalize(glm::vec3(glm::gaussRand(0.0f, 1.0f), glm::gaussRand(0.0f, 1.0f),
+glm::vec3 RandomVec3() {
+    return glm::normalize(glm::vec3(glm::gaussRand(0.0f, 1.0f),
+                                    glm::gaussRand(0.0f, 1.0f),
                                     glm::gaussRand(0.0f, 1.0f)));
 }
 
-bool Scene::AddSphere() {
-    if (sceneData.count == MAX_SPHERES) return false;
+Scene::Scene() {
+    sceneData.count = 3u;
 
-    sceneData.spheres[sceneData.count] = Sphere(glm::vec3(0.0f, 0.0f, -5.0f) + RandomColor() * 3.f, 1.0f,
-                                                Material(glm::vec3(0.0f), 0.0f, RandomColor()));
+    sceneData.spheres[0] = {
+        .pos = {0.0f, 0.0f, -5.0f},
+        .rad = 1.0f,
+        .mat = {
+            .color = {1.0f, 0.0f, 0.0f},
+            .smoothness = 0.0f,
+            .emissionColor = {0.0f, 0.0f, 0.0f},
+            .emissionStrength = 0.0f,
+        }
+    };
+
+    sceneData.spheres[1] = {
+        .pos = {9.0f, -40.0f, -8.0f},
+        .rad = 30.0f,
+        .mat = {
+            .color = {0.0f, 0.0f, 0.0f},
+            .smoothness = 0.0f,
+            .emissionColor = {1.0, 1.0, 0.7},
+            .emissionStrength = 5.0f,
+        }
+    };
+
+    sceneData.spheres[2] = {
+        .pos = {0.0f, 52.0f, -6.0f},
+        .rad = 50.0f,
+        .mat = {
+            .color = {0.2f, 0.2f, 0.2f},
+            .smoothness = 0.0f,
+            .emissionColor = {0.0f, 0.0f, 0.0f},
+            .emissionStrength = 0.0f,
+        }
+    };
+}
+
+void Scene::AddSphere() {
+    if (Full()) return;
+
+    sceneData.spheres[sceneData.count] = {
+        .pos = glm::vec3(0.0f, 0.0f, -5.0f) + RandomVec3() * 3.f,
+        .rad = 1.0f,
+        .mat = {
+            .color = RandomVec3(),
+            .smoothness = 0.0f,
+            .emissionColor = RandomVec3(),
+            .emissionStrength = 0.0f,
+        }
+    };
+
     sceneData.count++;
-
-    return true;
 }
 
 void Scene::RemoveSphere(const uint32_t idx) {
-    if (idx > sceneData.count) return;
+    if (idx >= sceneData.count) return;
+
+    for (uint32_t i = idx; i < sceneData.count - 1; i++) {
+        sceneData.spheres[i] = sceneData.spheres[i + 1];
+    }
 
     sceneData.count--;
-    for (uint32_t i = sceneData.count; i > idx; i--) {
-        sceneData.spheres[i] = sceneData.spheres[i - 1];
-    }
 }

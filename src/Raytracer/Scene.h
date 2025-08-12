@@ -11,18 +11,24 @@ constexpr float MIN_SPHERE_RADIUS = 1.0f;
 constexpr float MAX_SPHERE_RADIUS = 100.0f;
 constexpr float MAX_EMISSION_STRENGTH = 100.0f;
 constexpr float MIN_EMISSION_STRENGTH = 0.0f;
+constexpr float MIN_SMOOTHNESS = 0.0f;
+constexpr float MAX_SMOOTHNESS = 1.0f;
 
 struct LAYOUT_STD140 Material {
+    glm::vec3 color;
+    float smoothness;
     glm::vec3 emissionColor;
     float emissionStrength;
-    glm::vec3 color;
-    PAD(1);
+
+    bool DrawUI();
 };
 
 struct LAYOUT_STD140 Sphere {
     glm::vec3 pos;
     float rad;
     Material mat;
+
+    bool DrawUI();
 };
 
 struct LAYOUT_STD140 SceneData {
@@ -38,12 +44,13 @@ public:
 
     void DrawUI();
 
-    bool AddSphere();
+    void AddSphere();
     void RemoveSphere(uint32_t idx);
 
+    bool Full() const { return sceneData.count == MAX_SPHERES; }
     const SceneData& GetData() const { return sceneData; }
-    bool NeedsUpdate() const { return needsUpdate; }
 
+    bool NeedsUpdate() const { return needsUpdate; }
     void ResetUpdate() const { needsUpdate = false; }
 
 private:
