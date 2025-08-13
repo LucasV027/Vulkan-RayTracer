@@ -1,7 +1,10 @@
 #include "Window.h"
 
-#include <imgui.h>
 #include <stdexcept>
+
+#include <imgui.h>
+
+#include "Core/Log.h"
 
 Window::Window(const uint32_t width, const uint32_t height, const std::string& title) : width(width), height(height) {
     if (windowCount == 0) {
@@ -10,13 +13,15 @@ Window::Window(const uint32_t width, const uint32_t height, const std::string& t
         }
     }
 
+    glfwSetErrorCallback([](int code, const char* description) {
+        LOGE("GLFW: {}", description);
+    });
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     handle = glfwCreateWindow((int)width, (int)height, title.c_str(), nullptr, nullptr);
     if (!handle) { throw std::runtime_error("Failed to create GLFW window"); }
 
     ++windowCount;
-    glfwMakeContextCurrent(handle);
 
     // Callbacks
     glfwSetWindowUserPointer(handle, this);
@@ -83,5 +88,22 @@ double Window::GetScrollOffset() const {
 
 void Window::SetMouseLock(const bool locked) const {
     glfwSetInputMode(handle, GLFW_CURSOR, locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+}
+
+vk::SurfaceKHR Window::CreateSurface(const vk::Instance instance) const {
+    if (!instance || !handle) return nullptr;
+
+    VkSurfaceKHR surface;
+    const VkResult errCode = glfwCreateWindowSurface(instance, handle, nullptr, &surface);
+
+    if (errCode != VK_SUCCESS) return nullptr;
+
+    return surface;
+}
+
+std::vector<const char*> Window::GetRequiredSurfaceExtensions() const {
+    uint32_t count{0};
+    const char** names = glfwGetRequiredInstanceExtensions(&count);
+    return {names, names + count};
 }
 

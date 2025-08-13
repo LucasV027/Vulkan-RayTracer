@@ -7,6 +7,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "Vulkan/Base.h"
+
 class Window {
 public:
     Window(uint32_t width, uint32_t height, const std::string& title);
@@ -34,6 +36,10 @@ public:
     double GetScrollOffset() const;
 
     void SetMouseLock(bool locked) const;
+
+    // Vulkan
+    vk::SurfaceKHR CreateSurface(vk::Instance instance) const;
+    std::vector<const char*> GetRequiredSurfaceExtensions() const;
 
 private:
     GLFWwindow* handle = nullptr;

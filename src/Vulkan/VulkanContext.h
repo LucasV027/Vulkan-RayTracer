@@ -35,5 +35,5 @@ private:
     void CreateCommandPool();
 
 private:
-    std::shared_ptr<Window> windowRef;
+    std::shared_ptr<Window> window;
 };

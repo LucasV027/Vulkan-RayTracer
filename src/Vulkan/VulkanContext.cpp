@@ -4,7 +4,7 @@
 
 #include "Core/Log.h"
 
-VulkanContext::VulkanContext(const std::shared_ptr<Window>& window) : windowRef(window) {
+VulkanContext::VulkanContext(const std::shared_ptr<Window>& window) : window(window) {
     CreateInstance();
     CreateSurface();
     PickPhysicalDevice();
@@ -73,15 +73,12 @@ void VulkanContext::CreateInstance() {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     vk::ApplicationInfo appInfo{
-        .pApplicationName = windowRef->GetTitle(),
+        .pApplicationName = window->GetTitle(),
         .pEngineName = "",
         .apiVersion = VK_MAKE_VERSION(1, 3, 0)
     };
 
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
+    std::vector extensions = window->GetRequiredSurfaceExtensions();
     std::vector<const char*> requestedInstanceLayers;
 
 #ifndef NDEBUG
@@ -127,12 +124,7 @@ void VulkanContext::CreateInstance() {
 }
 
 void VulkanContext::CreateSurface() {
-    VkSurfaceKHR rawSurface;
-    if (glfwCreateWindowSurface(instance, windowRef->Handle(), nullptr, &rawSurface) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create window surface.");
-    }
-
-    surface = vk::SurfaceKHR(rawSurface);
+    surface = window->CreateSurface(instance);
 }
 
 void VulkanContext::PickPhysicalDevice() {
