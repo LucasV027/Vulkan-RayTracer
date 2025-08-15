@@ -27,14 +27,14 @@ public:
 
     ~Camera() = default;
 
-    void DrawUI();
-
     void SetPosition(const glm::vec3& newPosition);
     void SetOrientation(const glm::vec3& newOrientation);
     void SetFov(float newFovDeg);
 
     const CameraData& GetData() const { return cameraData; }
     float GetFovDeg() const { return fovDeg; }
+    glm::vec3 GetPosition() const { return cameraData.cameraPosition; }
+    glm::vec3 GetForward() const { return cameraData.cameraForward; }
 
     bool NeedsUpdate() const { return needsUpdate; }
     void ResetUpdate() const { needsUpdate = false; }

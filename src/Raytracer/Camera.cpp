@@ -1,7 +1,5 @@
 #include "Camera.h"
 
-#include <imgui.h>
-
 #include <glm/gtc/type_ptr.hpp>
 
 Camera::Camera(const glm::vec3& position,
@@ -15,47 +13,6 @@ Camera::Camera(const glm::vec3& position,
     cameraData.fovRad = glm::radians(fovDeg);
 
     UpdateVectors();
-}
-
-void Camera::DrawUI() {
-    static float baseFov = fovDeg;
-    static glm::vec3 baseCameraPos = cameraData.cameraPosition;
-    static glm::vec3 baseCameraForward = cameraData.cameraForward;
-
-    if (ImGui::TreeNode("Camera")) {
-        ImGui::Indent();
-
-        ImGui::SeparatorText("Transform");
-        if (ImGui::DragFloat3("Position", glm::value_ptr(cameraData.cameraPosition), 0.1f)) {
-            SetPosition(cameraData.cameraPosition);
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Reset##Position")) {
-            SetPosition(baseCameraPos);
-        }
-
-        if (ImGui::DragFloat3("Forward", glm::value_ptr(cameraData.cameraForward), 0.01f)) {
-            SetOrientation(cameraData.cameraForward);
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Reset##Forward")) {
-            SetOrientation(baseCameraForward);
-        }
-
-        ImGui::Spacing();
-
-        ImGui::SeparatorText("Lens");
-        if (ImGui::SliderFloat("FOV", &fovDeg, 1.0f, 179.0f, "%.1f°")) {
-            SetFov(fovDeg);
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Reset##Fov")) {
-            SetFov(baseFov);
-        }
-
-        ImGui::Unindent();
-        ImGui::TreePop();
-    }
 }
 
 void Camera::SetPosition(const glm::vec3& newPosition) {

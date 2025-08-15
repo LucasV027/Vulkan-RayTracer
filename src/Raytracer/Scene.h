@@ -25,16 +25,12 @@ struct LAYOUT_STD140 Material {
     float smoothness;
     glm::vec3 emissionColor;
     float emissionStrength;
-
-    bool DrawUI();
 };
 
 struct LAYOUT_STD140 Sphere {
     glm::vec3 pos;
     float rad;
     Material mat;
-
-    bool DrawUI();
 };
 
 struct LAYOUT_STD140 Mesh {
@@ -44,11 +40,11 @@ struct LAYOUT_STD140 Mesh {
     Material mat;
     glm::mat4 transform = glm::mat4(1.0f);
 
-    bool DrawUI();
-    void ComputeTransform(const glm::vec3& translation,
-                          const glm::vec3& rotationAxis,
-                          float rotationAngle,
-                          float scaleFactor);
+    static void ComputeTransform(glm::mat4& transform,
+                                 const glm::vec3& translation,
+                                 const glm::vec3& rotationAxis,
+                                 float rotationAngle,
+                                 float scaleFactor);
 };
 
 struct LAYOUT_STD140 SceneData {
@@ -69,9 +65,6 @@ public:
     Scene();
     ~Scene() = default;
 
-    void DrawUI();
-    void LoadPopup();
-
     void AddSphere();
     void RemoveSphere(uint32_t idx);
     void AddMesh(const std::filesystem::path& path);
@@ -79,12 +72,14 @@ public:
     bool SphereFull() const { return sceneData.sphereCount == MAX_SPHERES; }
     bool MeshFull() const { return sceneData.meshCount == MAX_MESHES; }
 
+    SceneData& GetData() { return sceneData; }
     const SceneData& GetData() const { return sceneData; }
 
     bool NeedsUpdate() const { return needsUpdate; }
     void ResetUpdate() const { needsUpdate = false; }
+    void NotifyUpdate() const { needsUpdate = true; }
 
 private:
-    SceneData sceneData{};
+    SceneData sceneData = {};
     mutable bool needsUpdate = true;
 };

@@ -45,6 +45,14 @@ add_executable(${PROJECT_NAME}
         src/Raytracer/Raytracer.cpp
         src/Raytracer/Raytracer.h
         src/Extern/objload.h
+        src/UI/SceneUI.cpp
+        src/UI/SceneUI.h
+        src/UI/BaseUI.h
+        src/UI/Base.cpp
+        src/UI/RaytracerUI.cpp
+        src/UI/RaytracerUI.h
+        src/UI/CameraUI.cpp
+        src/UI/CameraUI.h
 )
 
 # NOTE: This hardcoded path works only for local development builds.

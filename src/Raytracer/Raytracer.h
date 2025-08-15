@@ -9,11 +9,10 @@ public:
     Raytracer(uint32_t width, uint32_t height);
     ~Raytracer() = default;
 
-    void DrawUI();
     void Update(uint32_t newWidth, uint32_t newHeight);
 
-    const Camera& GetCamera() const { return *camera; }
-    const Scene& GetScene() const { return scene; }
+    Camera& GetCamera() const { return *camera; }
+    Scene& GetScene() const { return scene; }
     uint32_t GetWidth() const { return width; }
     uint32_t GetHeight() const { return height; }
 
@@ -23,5 +22,5 @@ private:
     uint32_t width;
     uint32_t height;
     std::shared_ptr<Camera> camera;
-    Scene scene;
+    mutable Scene scene;
 };

@@ -6,11 +6,6 @@ Raytracer::Raytracer(const uint32_t width, const uint32_t height) : width(width)
     camera = std::make_shared<Camera>();
 }
 
-void Raytracer::DrawUI() {
-    camera->DrawUI();
-    scene.DrawUI();
-}
-
 void Raytracer::Update(const uint32_t newWidth, const uint32_t newHeight) {
     if (newWidth != width || newHeight != height) {
         width = newWidth;

@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "Core/Log.h"
+#include "UI/RaytracerUI.h"
 
 Application::Application(const std::string& title, uint32_t width, uint32_t height) {
     try {
@@ -29,7 +30,7 @@ void Application::DrawUI() const {
     ImGui::Begin("[INFO]");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::Text("Window size: (%d, %d)", window->GetWidth(), window->GetHeight());
-    raytracer->DrawUI();
+    UI::DrawRaytracer(*raytracer);
     ImGui::End();
 }
 
