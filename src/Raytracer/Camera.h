@@ -2,21 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Core/Base.h"
-
-struct LAYOUT_STD140 CameraData {
-    glm::vec3 cameraPosition;
-    PAD(1);
-
-    glm::vec3 cameraForward;
-    PAD(1);
-
-    glm::vec3 cameraRight;
-    PAD(1);
-
-    glm::vec3 cameraUp;
-    float fovRad;
-};
+#include "ComputeData.h"
 
 class Camera {
 public:

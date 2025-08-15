@@ -37,7 +37,6 @@ add_executable(${PROJECT_NAME}
         src/Vulkan/Pipeline.cpp
         src/Raytracer/Camera.cpp
         src/Raytracer/Camera.h
-        src/Core/Base.h
         src/Raytracer/Scene.cpp
         src/Raytracer/Scene.h
         src/Controller/CameraController.cpp
@@ -53,6 +52,9 @@ add_executable(${PROJECT_NAME}
         src/UI/RaytracerUI.h
         src/UI/CameraUI.cpp
         src/UI/CameraUI.h
+        src/Raytracer/ComputeData.h
+        src/Core/Math.cpp
+        src/Core/Math.h
 )
 
 # NOTE: This hardcoded path works only for local development builds.

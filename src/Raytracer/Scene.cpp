@@ -1,31 +1,9 @@
 #include "Scene.h"
 
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/random.hpp>
-
-#include "Core/Log.h"
 #include "Extern/objload.h"
 
-void Mesh::ComputeTransform(glm::mat4& transform,
-                            const glm::vec3& translation,
-                            const glm::vec3& rotationAxis,
-                            const float rotationAngle,
-                            const float scaleFactor) {
-    const glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
-    auto R = glm::mat4(1.0f);
-    if (glm::length(rotationAxis) > 0.0001f) {
-        R = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngle), rotationAxis);
-    }
-
-    const glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(scaleFactor));
-    transform = T * R * S;
-}
-
-glm::vec3 RandomVec3() {
-    return glm::normalize(glm::vec3(glm::gaussRand(0.0f, 1.0f),
-                                    glm::gaussRand(0.0f, 1.0f),
-                                    glm::gaussRand(0.0f, 1.0f)));
-}
+#include "Core/Log.h"
+#include "Core/Math.h"
 
 Scene::Scene() {
     sceneData.sphereCount = 3u;
@@ -71,12 +49,12 @@ void Scene::AddSphere() {
     if (SphereFull()) return;
 
     sceneData.spheres[sceneData.sphereCount] = {
-        .pos = glm::vec3(0.0f, 0.0f, -5.0f) + RandomVec3() * 3.f,
+        .pos = glm::vec3(0.0f, 0.0f, -5.0f) + Math::RandomVec3() * 3.f,
         .rad = 1.0f,
         .mat = {
-            .color = RandomVec3(),
+            .color = Math::RandomVec3(),
             .smoothness = 0.0f,
-            .emissionColor = RandomVec3(),
+            .emissionColor = Math::RandomVec3(),
             .emissionStrength = 0.0f,
         }
     };
@@ -110,12 +88,12 @@ void Scene::AddMesh(const std::filesystem::path& path) {
     const auto verticesCount = vertices.size() / 3;
     const auto indicesCount = indices.size() / 3;
 
-    if (sceneData.verticesCount + verticesCount > MAX_VERTICES) {
+    if (sceneData.verticesCount + verticesCount > SceneData::MAX_VERTICES) {
         LOGE("Too many vertices (current {}, adding {}) ", sceneData.verticesCount, verticesCount);
         return;
     }
 
-    if (sceneData.facesCount + indicesCount > MAX_FACES) {
+    if (sceneData.facesCount + indicesCount > SceneData::MAX_FACES) {
         LOGE("Too many indices (current {}, adding {}) ", sceneData.facesCount, indicesCount);
         return;
     }
@@ -144,3 +122,4 @@ void Scene::AddMesh(const std::filesystem::path& path) {
     sceneData.verticesCount += verticesCount;
     needsUpdate = true;
 }
+

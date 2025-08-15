@@ -1,7 +1,5 @@
 #include "Camera.h"
 
-#include <glm/gtc/type_ptr.hpp>
-
 Camera::Camera(const glm::vec3& position,
                const glm::vec3& up,
                const glm::vec3& orientation,

@@ -2,13 +2,11 @@
 
  #include <format>
 
-// ImGui
 #include <imgui.h>
-
-// GLM
 #include <glm/gtc/type_ptr.hpp>
 
 #include "BaseUI.h"
+#include "Core/Math.h"
 
 bool UI::DrawMaterial(Material& mat) {
     bool changed = false;
@@ -99,7 +97,7 @@ bool UI::DrawTransform(glm::mat4& transform) {
     }
 
     if (transformUpdate) {
-        Mesh::ComputeTransform(transform, translation, rotationAxis, rotationAngle, scaleFactor);
+        transform = Math::ComputeTransform(translation, rotationAxis, rotationAngle, scaleFactor);
     }
 
     return transformUpdate;
