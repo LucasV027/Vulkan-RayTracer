@@ -4,8 +4,12 @@
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include "Core/Log.h"
 #include "Extern/objload.h"
@@ -67,8 +71,58 @@ bool Mesh::DrawUI() {
     ImGui::SeparatorText("Indices");
     {
         ImGui::Indent();
+
         ImGui::Text("Start : %u", start);
         ImGui::Text("Count : %u", count);
+
+        ImGui::Unindent();
+    }
+
+    ImGui::SeparatorText("Transform");
+    {
+        static float scaleFactor = 1.0f;
+        static auto translation = glm::vec3(0.0f);
+        static float rotationAngle = 0.0f;
+        static auto rotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        bool transformUpdate = false;
+
+        ImGui::Indent();
+
+        ImGui::SeparatorText("Translation");
+        {
+            ImGui::Indent();
+            if (ImGui::SliderFloat3("Offset", glm::value_ptr(translation), -100.f, 100.f, "%.2f")) {
+                transformUpdate = true;
+            }
+            ImGui::Unindent();
+        }
+
+        ImGui::SeparatorText("Rotation");
+        {
+            ImGui::Indent();
+            if (ImGui::DragFloat3("Axis", glm::value_ptr(rotationAxis), 0.25f, -1.0f, 1.0f, "%.2f") ||
+                ImGui::DragFloat("Angle", &rotationAngle, 1.f, 0.0f, 180.0f, "%.2f")) {
+                transformUpdate = true;
+            }
+            ImGui::Unindent();
+        }
+
+        ImGui::SeparatorText("Scale");
+        {
+            ImGui::Indent();
+            if (ImGui::SliderFloat("Factor", &scaleFactor, 0.01f, 10.0f, "%.2f")) {
+                transformUpdate = true;
+            }
+            ImGui::Unindent();
+        }
+
+        if (transformUpdate) {
+            ComputeTransform(translation, rotationAxis, rotationAngle, scaleFactor);
+            changed = true;
+        }
+
+
         ImGui::Unindent();
     }
 
@@ -77,6 +131,20 @@ bool Mesh::DrawUI() {
     ImGui::NewLine();
 
     return changed;
+}
+
+void Mesh::ComputeTransform(const glm::vec3& translation,
+                            const glm::vec3& rotationAxis,
+                            const float rotationAngle,
+                            const float scaleFactor) {
+    const glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+    auto R = glm::mat4(1.0f);
+    if (glm::length(rotationAxis) > 0.0001f) {
+        R = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngle), rotationAxis);
+    }
+
+    const glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(scaleFactor));
+    transform = T * R * S;
 }
 
 void Scene::LoadPopup() {
@@ -251,7 +319,7 @@ void Scene::AddMesh(const std::filesystem::path& path) {
     obj::Model model;
     try {
         model = std::move(obj::loadModelFromFile(path.string()));
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         LOGE("Failed to load model from {}", path.string());
         return;
     }
@@ -295,4 +363,3 @@ void Scene::AddMesh(const std::filesystem::path& path) {
     sceneData.verticesCount += verticesCount;
     needsUpdate = true;
 }
-

@@ -36,7 +36,7 @@ struct Mesh {
     uint start;
     uint count;
     Material material;
-    // TODO:    mat4 transform;
+    mat4 transform;
 };
 
 struct Scene {
@@ -116,8 +116,7 @@ void StorePixel(ivec2 coord, vec3 color) {
 }
 
 /////////// Core ///////////
-HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
-{
+HitInfo RaySphereIntersection(Ray ray, const Sphere sphere) {
     HitInfo hitInfo;
     hitInfo.didCollide = false;
 
@@ -141,13 +140,13 @@ HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
 }
 
 // Möller–Trumbore intersection algorithm
-HitInfo RayTriangleIntersection(Ray ray, const uvec3 face) {
+HitInfo RayTriangleIntersection(Ray ray, const uvec3 face, const mat4 transform) {
     HitInfo hitInfo;
     hitInfo.didCollide = false;
 
-    vec3 a = scene.vertices[face.x];
-    vec3 b = scene.vertices[face.y];
-    vec3 c = scene.vertices[face.z];
+    vec3 a = (transform * vec4(scene.vertices[face.x], 1.0)).rgb;
+    vec3 b = (transform * vec4(scene.vertices[face.y], 1.0)).rgb;
+    vec3 c = (transform * vec4(scene.vertices[face.z], 1.0)).rgb;
 
     vec3 ab = b - a;
     vec3 ac = c - a;
@@ -213,7 +212,7 @@ HitInfo ClosestHit(Ray ray) {
         const Mesh m = scene.meshes[i];
 
         for (uint t = m.start; t < m.start + m.count; t++) {
-            HitInfo current = RayTriangleIntersection(ray, scene.faces[t]);
+            HitInfo current = RayTriangleIntersection(ray, scene.faces[t], m.transform);
             if (current.didCollide && current.dst < closest.dst) {
                 closest = current;
                 closest.mat = m.material;

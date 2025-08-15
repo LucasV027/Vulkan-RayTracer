@@ -42,8 +42,13 @@ struct LAYOUT_STD140 Mesh {
     uint32_t count;
     PAD(2);
     Material mat;
+    glm::mat4 transform = glm::mat4(1.0f);
 
     bool DrawUI();
+    void ComputeTransform(const glm::vec3& translation,
+                          const glm::vec3& rotationAxis,
+                          float rotationAngle,
+                          float scaleFactor);
 };
 
 struct LAYOUT_STD140 SceneData {
