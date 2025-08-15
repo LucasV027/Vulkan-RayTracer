@@ -1,6 +1,6 @@
 #include "SceneUI.h"
 
- #include <format>
+#include <format>
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -137,63 +137,38 @@ void UI::DrawScene(Scene& scene) {
 
     if (ImGui::TreeNode("Scene")) {
         {
-            ImGui::Text("Meshes[%u]", sceneData.meshCount);
-            if (!scene.MeshFull()) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("+")) {
-                    ImGui::OpenPopup("LoadPopup");
-                }
-                if (ImGui::BeginPopupModal("LoadPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    LoadPopup(filename, ".obj", [&](const std::filesystem::path& filepath) {
-                        scene.AddMesh(filepath);
-                        changed = true;
-                    });
-                    ImGui::EndPopup();
-                }
-            }
+            changed |= DrawCollectionHeader("Meshes", sceneData.meshCount,
+                                            [scene] { return scene.MeshFull(); },   // Collection full callback
+                                            [] { ImGui::OpenPopup("LoadPopup"); }); // Add item callback
+
+            InputFilenamePopup("LoadPopup",
+                               filename,
+                               ".obj",
+                               [&](const std::filesystem::path& filepath) {
+                                   scene.AddMesh(filepath);
+                                   changed = true;
+                               });
 
             ImGui::Separator();
-            ImGui::Indent();
 
-            for (uint32_t i = 0; i < sceneData.meshCount; i++) {
-                if (ImGui::TreeNode(std::format("Mesh[{}]", i).c_str())) {
-                    changed |= DrawMesh(sceneData.meshes[i]);
-                    ImGui::TreePop();
-                }
-            }
+            ImGui::Indent();
+            changed |= DrawCollection("Mesh", sceneData.meshes, sceneData.meshCount, DrawMesh,
+                                      [&scene](const uint32_t idx) { scene.RemoveMesh(idx); });
             ImGui::Unindent();
         }
 
         ImGui::NewLine();
 
         {
-            ImGui::Text("Spheres[%u]", sceneData.sphereCount);
-            if (!scene.SphereFull()) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("+##")) {
-                    scene.AddSphere();
-                    changed = true;
-                }
-            }
+            changed |= DrawCollectionHeader("Sphere", sceneData.meshCount,
+                                            [scene] { return scene.SphereFull(); }, // Collection full callback
+                                            [&scene] { scene.AddSphere(); });       // Add item callback
 
             ImGui::Separator();
 
             ImGui::Indent();
-
-            for (uint32_t i = 0; i < sceneData.sphereCount; i++) {
-                ImGui::PushID(i);
-                if (ImGui::SmallButton("x")) {
-                    scene.RemoveSphere(i);
-                    changed = true;
-                }
-                ImGui::PopID();
-                ImGui::SameLine();
-
-                if (ImGui::TreeNode(std::format("Sphere[{}]", i).c_str())) {
-                    changed |= DrawSphere(sceneData.spheres[i]);
-                    ImGui::TreePop();
-                }
-            }
+            changed |= DrawCollection("Sphere", sceneData.spheres, sceneData.sphereCount, DrawSphere,
+                                      [&scene](const uint32_t i) { scene.RemoveSphere(i); });
             ImGui::Unindent();
         }
         ImGui::TreePop();

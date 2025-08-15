@@ -103,9 +103,11 @@ void Scene::AddMesh(const std::filesystem::path& path) {
         sceneData.vertices[i] = glm::vec4(vertex[0], vertex[1], vertex[2], 1.0f);
     }
 
+    const auto verticesStart = sceneData.verticesCount;
     for (size_t i = sceneData.facesCount; i < sceneData.facesCount + indicesCount; i++) {
         const auto face = &indices.at((i - sceneData.facesCount) * 3);
-        sceneData.faces[i] = glm::uvec4(face[0], face[1], face[2], 0);
+        // We offset the indices by the current start of our vertices buffer
+        sceneData.faces[i] = glm::uvec4(face[0], face[1], face[2], 0) + glm::uvec4(verticesStart);
     }
 
     auto& newMesh = sceneData.meshes[sceneData.meshCount++];
@@ -118,8 +120,57 @@ void Scene::AddMesh(const std::filesystem::path& path) {
         .emissionStrength = 0.0f,
     };
 
-    sceneData.facesCount += indicesCount;
     sceneData.verticesCount += verticesCount;
+    sceneData.facesCount += indicesCount;
+    needsUpdate = true;
+}
+
+void Scene::RemoveMesh(const uint32_t idx) {
+    if (idx >= sceneData.meshCount) return;
+
+    const auto& toRemove = sceneData.meshes[idx];
+    const uint32_t indicesStart = toRemove.start;
+    const uint32_t indicesCount = toRemove.count;
+
+    // Find the min and max index of the mesh triangles
+    uint32_t minVertex = UINT32_MAX;
+    uint32_t maxVertex = 0;
+
+    for (uint32_t i = indicesStart; i < indicesStart + indicesCount; i++) {
+        const auto& f = sceneData.faces[i];
+        minVertex = std::min({minVertex, f.x, f.y, f.z});
+        maxVertex = std::max({maxVertex, f.x, f.y, f.z});
+    }
+
+    const uint32_t verticesToRemove = maxVertex - minVertex + 1;
+
+    // Remove vertices
+    for (uint32_t i = minVertex; i + verticesToRemove < sceneData.verticesCount; i++) {
+        sceneData.vertices[i] = sceneData.vertices[i + verticesToRemove];
+    }
+    sceneData.verticesCount -= verticesToRemove;
+
+    // Update the remaining faces
+    for (uint32_t i = 0; i < sceneData.facesCount; i++) {
+        auto& f = sceneData.faces[i];
+        if (f.x > maxVertex) f.x -= verticesToRemove;
+        if (f.y > maxVertex) f.y -= verticesToRemove;
+        if (f.z > maxVertex) f.z -= verticesToRemove;
+    }
+
+    // Remove faces
+    for (uint32_t i = indicesStart; i + indicesCount < sceneData.facesCount; i++) {
+        sceneData.faces[i] = sceneData.faces[i + indicesCount];
+    }
+    sceneData.facesCount -= indicesCount;
+
+    // Remove the mesh
+    for (uint32_t i = idx; i + 1 < sceneData.meshCount; i++) {
+        sceneData.meshes[i] = sceneData.meshes[i + 1];
+        sceneData.meshes[i].start -= indicesCount;
+    }
+    sceneData.meshCount--;
+
     needsUpdate = true;
 }
 

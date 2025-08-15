@@ -44,8 +44,8 @@ struct LAYOUT_STD140 Mesh {
 
 struct LAYOUT_STD140 SceneData {
     static constexpr size_t MAX_SPHERES = 20;
-    static constexpr size_t MAX_VERTICES = 10;
-    static constexpr size_t MAX_FACES = 10;
+    static constexpr size_t MAX_VERTICES = 20;
+    static constexpr size_t MAX_FACES = 20;
     static constexpr size_t MAX_MESHES = 5;
 
     Sphere spheres[MAX_SPHERES];
