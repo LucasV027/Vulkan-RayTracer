@@ -48,3 +48,6 @@ cmake-build*
 
 # Compiled shaders
 *.spv
+
+# .obj files in assets are meshes file
+!assets/*.obj
