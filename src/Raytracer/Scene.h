@@ -1,10 +1,16 @@
 #pragma once
 
+#include <filesystem>
+
 #include <glm/glm.hpp>
 
 #include "Core/Base.h"
 
 constexpr size_t MAX_SPHERES = 20;
+constexpr size_t MAX_VERTICES = 10;
+constexpr size_t MAX_FACES = 10;
+constexpr size_t MAX_MESHES = 5;
+
 constexpr float MAX_POS = 100.f;
 constexpr float MIN_POS = -100.f;
 constexpr float MIN_SPHERE_RADIUS = 1.0f;
@@ -31,10 +37,26 @@ struct LAYOUT_STD140 Sphere {
     bool DrawUI();
 };
 
+struct LAYOUT_STD140 Mesh {
+    uint32_t start;
+    uint32_t count;
+    PAD(2);
+    Material mat;
+
+    bool DrawUI();
+};
+
 struct LAYOUT_STD140 SceneData {
     Sphere spheres[MAX_SPHERES];
-    uint32_t count;
-    PAD(3);
+
+    glm::vec4 vertices[MAX_VERTICES];
+    glm::uvec4 faces[MAX_FACES];
+    Mesh meshes[MAX_MESHES];
+
+    uint32_t sphereCount;
+    uint32_t verticesCount;
+    uint32_t meshCount;
+    uint32_t facesCount;
 };
 
 class Scene {
@@ -43,11 +65,15 @@ public:
     ~Scene() = default;
 
     void DrawUI();
+    void LoadPopup();
 
     void AddSphere();
     void RemoveSphere(uint32_t idx);
+    void AddMesh(const std::filesystem::path& path);
 
-    bool Full() const { return sceneData.count == MAX_SPHERES; }
+    bool SphereFull() const { return sceneData.sphereCount == MAX_SPHERES; }
+    bool MeshFull() const { return sceneData.meshCount == MAX_MESHES; }
+
     const SceneData& GetData() const { return sceneData; }
 
     bool NeedsUpdate() const { return needsUpdate; }

@@ -3,8 +3,12 @@
 #include <format>
 
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
+
+#include "Core/Log.h"
+#include "Extern/objload.h"
 
 bool Material::DrawUI() {
     bool changed = false;
@@ -57,38 +61,114 @@ bool Sphere::DrawUI() {
     return changed;
 }
 
+bool Mesh::DrawUI() {
+    bool changed = false;
+
+    ImGui::SeparatorText("Indices");
+    {
+        ImGui::Indent();
+        ImGui::Text("Start : %u", start);
+        ImGui::Text("Count : %u", count);
+        ImGui::Unindent();
+    }
+
+    changed |= mat.DrawUI();
+
+    ImGui::NewLine();
+
+    return changed;
+}
+
+void Scene::LoadPopup() {
+    static std::string filename;
+
+    ImGui::Text("Enter filename:");
+    ImGui::InputText("##Filename", &filename, ImGuiInputTextFlags_CallbackCharFilter,
+                     [](ImGuiInputTextCallbackData* data) {
+                         if (isalnum(data->EventChar) || data->EventChar == '_' || data->EventChar == '-') return 0;
+                         return 1;
+                     });
+
+
+    ImGui::Separator();
+
+    if (ImGui::Button("Load")) {
+        if (!filename.empty()) {
+            auto filePath = ASSETS_PATH / static_cast<std::filesystem::path>(filename);
+            filePath.replace_extension(".obj");
+            AddMesh(filePath);
+            filename.clear();
+            ImGui::CloseCurrentPopup();
+        }
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Cancel")) {
+        filename.clear();
+        ImGui::CloseCurrentPopup();
+    }
+}
+
 void Scene::DrawUI() {
     if (ImGui::TreeNode("Scene")) {
-        ImGui::Text("Objects[%u]", sceneData.count);
-        if (!Full()) {
-            ImGui::SameLine();
-            if (ImGui::SmallButton("+")) {
-                AddSphere();
-                needsUpdate = true;
+        {
+            ImGui::Text("Meshes[%u]", sceneData.meshCount);
+            if (!MeshFull()) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("+")) {
+                    ImGui::OpenPopup("LoadPopup");
+                }
+                if (ImGui::BeginPopupModal("LoadPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    LoadPopup();
+                    ImGui::EndPopup();
+                }
             }
+
+            ImGui::Separator();
+            ImGui::Indent();
+
+            for (uint32_t i = 0; i < sceneData.meshCount; i++) {
+                if (ImGui::TreeNode(std::format("Mesh[{}]", i).c_str())) {
+                    needsUpdate |= sceneData.meshes[i].DrawUI();
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::Unindent();
         }
 
-        ImGui::Separator();
+        ImGui::NewLine();
 
-        ImGui::Indent();
-
-        for (uint32_t i = 0; i < sceneData.count; i++) {
-            ImGui::PushID(i);
-            if (ImGui::SmallButton("x")) {
-                RemoveSphere(i);
-                needsUpdate = true;
+        {
+            ImGui::Text("Spheres[%u]", sceneData.sphereCount);
+            if (!SphereFull()) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("+##")) {
+                    AddSphere();
+                    needsUpdate = true;
+                }
             }
-            ImGui::PopID();
-            ImGui::SameLine();
 
-            if (ImGui::TreeNode(std::format("Sphere[{}]", i).c_str())) {
-                needsUpdate |= sceneData.spheres[i].DrawUI();
-                ImGui::TreePop();
+            ImGui::Separator();
+
+            ImGui::Indent();
+
+            for (uint32_t i = 0; i < sceneData.sphereCount; i++) {
+                ImGui::PushID(i);
+                if (ImGui::SmallButton("x")) {
+                    RemoveSphere(i);
+                    needsUpdate = true;
+                }
+                ImGui::PopID();
+                ImGui::SameLine();
+
+                if (ImGui::TreeNode(std::format("Sphere[{}]", i).c_str())) {
+                    needsUpdate |= sceneData.spheres[i].DrawUI();
+                    ImGui::TreePop();
+                }
             }
+            ImGui::Unindent();
         }
         ImGui::TreePop();
-
-        ImGui::Unindent();
     }
 }
 
@@ -99,7 +179,10 @@ glm::vec3 RandomVec3() {
 }
 
 Scene::Scene() {
-    sceneData.count = 3u;
+    sceneData.sphereCount = 3u;
+    sceneData.verticesCount = 0u;
+    sceneData.meshCount = 0u;
+    sceneData.facesCount = 0u;
 
     sceneData.spheres[0] = {
         .pos = {0.0f, 0.0f, -5.0f},
@@ -118,7 +201,7 @@ Scene::Scene() {
         .mat = {
             .color = {0.0f, 0.0f, 0.0f},
             .smoothness = 0.0f,
-            .emissionColor = {1.0, 1.0, 0.7},
+            .emissionColor = {1.0f, 1.0f, 0.7f},
             .emissionStrength = 5.0f,
         }
     };
@@ -136,9 +219,9 @@ Scene::Scene() {
 }
 
 void Scene::AddSphere() {
-    if (Full()) return;
+    if (SphereFull()) return;
 
-    sceneData.spheres[sceneData.count] = {
+    sceneData.spheres[sceneData.sphereCount] = {
         .pos = glm::vec3(0.0f, 0.0f, -5.0f) + RandomVec3() * 3.f,
         .rad = 1.0f,
         .mat = {
@@ -149,15 +232,67 @@ void Scene::AddSphere() {
         }
     };
 
-    sceneData.count++;
+    sceneData.sphereCount++;
 }
 
 void Scene::RemoveSphere(const uint32_t idx) {
-    if (idx >= sceneData.count) return;
+    if (idx >= sceneData.sphereCount) return;
 
-    for (uint32_t i = idx; i < sceneData.count - 1; i++) {
+    for (uint32_t i = idx; i < sceneData.sphereCount - 1; i++) {
         sceneData.spheres[i] = sceneData.spheres[i + 1];
     }
 
-    sceneData.count--;
+    sceneData.sphereCount--;
 }
+
+void Scene::AddMesh(const std::filesystem::path& path) {
+    if (MeshFull()) return;
+
+    obj::Model model;
+    try {
+        model = std::move(obj::loadModelFromFile(path.string()));
+    } catch (const std::exception& e) {
+        LOGE("Failed to load model from {}", path.string());
+        return;
+    }
+
+    const auto& vertices = model.vertex;
+    const auto& indices = model.faces.at("default");
+    const auto verticesCount = vertices.size() / 3;
+    const auto indicesCount = indices.size() / 3;
+
+    if (sceneData.verticesCount + verticesCount > MAX_VERTICES) {
+        LOGE("Too many vertices (current {}, adding {}) ", sceneData.verticesCount, verticesCount);
+        return;
+    }
+
+    if (sceneData.facesCount + indicesCount > MAX_FACES) {
+        LOGE("Too many indices (current {}, adding {}) ", sceneData.facesCount, indicesCount);
+        return;
+    }
+
+    for (size_t i = sceneData.verticesCount; i < sceneData.verticesCount + verticesCount; i++) {
+        const auto vertex = &vertices.at((i - sceneData.verticesCount) * 3);
+        sceneData.vertices[i] = glm::vec4(vertex[0], vertex[1], vertex[2], 1.0f);
+    }
+
+    for (size_t i = sceneData.facesCount; i < sceneData.facesCount + indicesCount; i++) {
+        const auto face = &indices.at((i - sceneData.facesCount) * 3);
+        sceneData.faces[i] = glm::uvec4(face[0], face[1], face[2], 0);
+    }
+
+    auto& newMesh = sceneData.meshes[sceneData.meshCount++];
+    newMesh.count = indicesCount;
+    newMesh.start = sceneData.facesCount;
+    newMesh.mat = {
+        .color = {0.8f, 0.5f, 0.0f},
+        .smoothness = 0.0f,
+        .emissionColor = {0.0f, 0.0f, 0.0f},
+        .emissionStrength = 0.0f,
+    };
+
+    sceneData.facesCount += indicesCount;
+    sceneData.verticesCount += verticesCount;
+    needsUpdate = true;
+}
+

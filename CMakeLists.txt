@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 project(Vulkan-RayTracer)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -44,7 +44,13 @@ add_executable(${PROJECT_NAME}
         src/Controller/CameraController.h
         src/Raytracer/Raytracer.cpp
         src/Raytracer/Raytracer.h
+        src/Extern/objload.h
 )
+
+# NOTE: This hardcoded path works only for local development builds.
+set(ASSETS_DIR "${CMAKE_SOURCE_DIR}/assets/")
+target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH=\"${ASSETS_DIR}\")
+
 
 include(Dependencies.cmake)
 
@@ -64,6 +70,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         ${imgui_SOURCE_DIR}/imgui_tables.cpp
         ${imgui_SOURCE_DIR}/imgui_widgets.cpp
         ${imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )

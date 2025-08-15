@@ -4,6 +4,9 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 /////////// Constants ///////////
 #define MAX_SPHERES 20
+#define MAX_VERTICES 10
+#define MAX_FACES 10
+#define MAX_MESHES 5
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
@@ -29,9 +32,24 @@ struct Sphere {
     Material mat;
 };
 
+struct Mesh {
+    uint start;
+    uint count;
+    Material material;
+    // TODO:    mat4 transform;
+};
+
 struct Scene {
     Sphere spheres[MAX_SPHERES];
-    uint count;
+
+    vec3 vertices[MAX_VERTICES];
+    uvec3 faces[MAX_FACES];
+    Mesh meshes[MAX_MESHES];
+
+    uint sphereCount;
+    uint verticesCount;
+    uint meshCount;
+    uint facesCount;
 };
 
 struct HitInfo {
@@ -122,6 +140,48 @@ HitInfo RaySphereIntersection(Ray ray, const Sphere sphere)
     return hitInfo;
 }
 
+// Möller–Trumbore intersection algorithm
+HitInfo RayTriangleIntersection(Ray ray, const uvec3 face) {
+    HitInfo hitInfo;
+    hitInfo.didCollide = false;
+
+    vec3 a = scene.vertices[face.x];
+    vec3 b = scene.vertices[face.y];
+    vec3 c = scene.vertices[face.z];
+
+    vec3 ab = b - a;
+    vec3 ac = c - a;
+
+    vec3 pvec = cross(ray.dir, ac);
+    float det = dot(ab, pvec);
+
+    if (abs(det) < 1e-6)
+    return hitInfo;
+
+    float invDet = 1.0 / det;
+    vec3 tvec = ray.ori - a;
+
+    float u = dot(tvec, pvec) * invDet;
+    if (u < 0.0 || u > 1.0)
+    return hitInfo;
+
+    vec3 qvec = cross(tvec, ab);
+    float v = dot(ray.dir, qvec) * invDet;
+    if (v < 0.0 || u + v > 1.0)
+    return hitInfo;
+
+    float t = dot(ac, qvec) * invDet;
+    if (t < 0.0)
+    return hitInfo;
+
+    hitInfo.didCollide = true;
+    hitInfo.hitPoint = ray.ori + ray.dir * t;
+    hitInfo.normal = normalize(cross(ab, ac));
+    hitInfo.dst = t;
+    return hitInfo;
+}
+
+
 Ray GenerateRay(ivec2 pixelCoord, inout uint state) {
     ivec2 size = imageSize(resultImage);
     vec2 uv = (vec2(pixelCoord) + 0.5) / size;
@@ -142,10 +202,26 @@ HitInfo ClosestHit(Ray ray) {
     closest.didCollide = false;
     closest.dst = FLT_MAX;
 
-    for (int j = 0; j < scene.count; j++) {
+    // Spheres
+    for (int j = 0; j < scene.sphereCount; j++) {
         HitInfo current = RaySphereIntersection(ray, scene.spheres[j]);
         if (current.didCollide && current.dst < closest.dst) closest = current;
     }
+
+    // Meshes
+    for (int i = 0; i < scene.meshCount; i++) {
+        const Mesh m = scene.meshes[i];
+
+        for (uint t = m.start; t < m.start + m.count; t++) {
+            HitInfo current = RayTriangleIntersection(ray, scene.faces[t]);
+            if (current.didCollide && current.dst < closest.dst) {
+                closest = current;
+                closest.mat = m.material;
+                break;
+            }
+        }
+    }
+
 
     return closest;
 }
