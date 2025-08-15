@@ -34,6 +34,7 @@ void Application::DrawUI() const {
 }
 
 void Application::Update() const {
+    window->PollEvents();
     cameraController->Update(0.001f);
     raytracer->Update(window->GetWidth(), window->GetHeight());
     renderer->Update(*raytracer);
