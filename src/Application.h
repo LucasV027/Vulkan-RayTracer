@@ -17,7 +17,7 @@ public:
 
 private:
     void DrawUI() const;
-    void Update() const;
+    void Update(float dt) const;
     void Render() const;
 
 private:

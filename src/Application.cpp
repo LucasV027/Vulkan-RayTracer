@@ -1,7 +1,9 @@
 #include "Application.h"
 
-#include <imgui.h>
 #include <thread>
+#include <chrono>
+
+#include <imgui.h>
 
 #include "Core/Log.h"
 #include "UI/RaytracerUI.h"
@@ -21,8 +23,18 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
 }
 
 void Application::Run() const {
+    using clock = std::chrono::high_resolution_clock;
+
+    auto lastTick = clock::now();
+    float dt = 0.0f;
+
     while (!window->ShouldClose()) {
-        Update();
+        auto now = clock::now();
+        std::chrono::duration<float> elapsed = now - lastTick;
+        dt = elapsed.count();
+        lastTick = now;
+
+        Update(dt);
         Render();
     }
 }
@@ -35,9 +47,9 @@ void Application::DrawUI() const {
     ImGui::End();
 }
 
-void Application::Update() const {
+void Application::Update(const float dt) const {
     window->PollEvents();
-    if (cameraController->Update(0.001f)) raytracer->SetDirty(DirtyFlags::Camera);
+    if (cameraController->Update(dt)) raytracer->SetDirty(DirtyFlags::Camera);
     raytracer->Update(window->GetWidth(), window->GetHeight());
     renderer->Update(*raytracer);
 }
