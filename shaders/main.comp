@@ -4,8 +4,8 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 /////////// Constants ///////////
 #define MAX_SPHERES 20
-#define MAX_VERTICES 20
-#define MAX_FACES 20
+#define MAX_VERTICES 1000
+#define MAX_FACES 1000
 #define MAX_MESHES 5
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
@@ -35,6 +35,8 @@ struct Sphere {
 struct Mesh {
     uint start;
     uint count;
+    vec3 minBoundingBox;
+    vec3 maxBoundingBox;
     Material material;
     mat4 transform;
 };
@@ -141,43 +143,42 @@ HitInfo RaySphereIntersection(Ray ray, const Sphere sphere) {
 
 // Möller–Trumbore intersection algorithm
 HitInfo RayTriangleIntersection(Ray ray, const uvec3 face, const mat4 transform) {
-    HitInfo hitInfo;
-    hitInfo.didCollide = false;
-
-    vec3 a = (transform * vec4(scene.vertices[face.x], 1.0)).rgb;
-    vec3 b = (transform * vec4(scene.vertices[face.y], 1.0)).rgb;
-    vec3 c = (transform * vec4(scene.vertices[face.z], 1.0)).rgb;
+    vec3 a = (transform * vec4(scene.vertices[face.x], 1.0)).xyz;
+    vec3 b = (transform * vec4(scene.vertices[face.y], 1.0)).xyz;
+    vec3 c = (transform * vec4(scene.vertices[face.z], 1.0)).xyz;
 
     vec3 ab = b - a;
     vec3 ac = c - a;
+    vec3 normal = cross(ab, ac);
+    vec3 ao = ray.ori - a;
+    vec3 dao = cross(ao, ray.dir);
 
-    vec3 pvec = cross(ray.dir, ac);
-    float det = dot(ab, pvec);
+    float determinant = -dot(ray.dir, normal);
+    float invDet = 1 / determinant;
 
-    if (abs(det) < 1e-6)
+    float dst = dot(ao, normal) * invDet;
+    float u = dot(ac, dao) * invDet;
+    float v = -dot(ab, dao) * invDet;
+    float w = 1 - u - v;
+
+    HitInfo hitInfo;
+    hitInfo.didCollide = determinant >= 1E-6 && dst >= 0 && u >= 0 && v >= 0 && w >= 0;
+    hitInfo.hitPoint = ray.ori + ray.dir * dst;
+    hitInfo.normal = normalize(normal);
+    hitInfo.dst = dst;
     return hitInfo;
+}
 
-    float invDet = 1.0 / det;
-    vec3 tvec = ray.ori - a;
+// https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
+bool RayBoundingBoxIntersection(Ray ray, const vec3 boxMin, const vec3 boxMax) {
+    vec3 tMin = (boxMin - ray.ori) / ray.dir;
+    vec3 tMax = (boxMax - ray.ori) / ray.dir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
 
-    float u = dot(tvec, pvec) * invDet;
-    if (u < 0.0 || u > 1.0)
-    return hitInfo;
-
-    vec3 qvec = cross(tvec, ab);
-    float v = dot(ray.dir, qvec) * invDet;
-    if (v < 0.0 || u + v > 1.0)
-    return hitInfo;
-
-    float t = dot(ac, qvec) * invDet;
-    if (t < 0.0)
-    return hitInfo;
-
-    hitInfo.didCollide = true;
-    hitInfo.hitPoint = ray.ori + ray.dir * t;
-    hitInfo.normal = normalize(cross(ab, ac));
-    hitInfo.dst = t;
-    return hitInfo;
+    return tNear <= tFar;
 }
 
 
@@ -211,6 +212,11 @@ HitInfo ClosestHit(Ray ray) {
     for (int i = 0; i < scene.meshCount; i++) {
         const Mesh m = scene.meshes[i];
 
+        vec3 minBox = (m.transform * vec4(m.minBoundingBox, 1.0)).xyz;
+        vec3 maxBox = (m.transform * vec4(m.maxBoundingBox, 1.0)).xyz;
+
+        if (!RayBoundingBoxIntersection(ray, minBox, maxBox)) continue;
+
         for (uint t = m.start; t < m.start + m.count; t++) {
             HitInfo current = RayTriangleIntersection(ray, scene.faces[t], m.transform);
             if (current.didCollide && current.dst < closest.dst) {
@@ -220,7 +226,6 @@ HitInfo ClosestHit(Ray ray) {
             }
         }
     }
-
 
     return closest;
 }

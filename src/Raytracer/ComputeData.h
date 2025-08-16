@@ -38,14 +38,18 @@ struct LAYOUT_STD140 Mesh {
     uint32_t start;
     uint32_t count;
     PAD(2);
+    glm::vec3 minBoundingBox;
+    PAD(1);
+    glm::vec3 maxBoundingBox;
+    PAD(1);
     Material mat;
     glm::mat4 transform = glm::mat4(1.0f);
 };
 
 struct LAYOUT_STD140 SceneData {
     static constexpr size_t MAX_SPHERES = 20;
-    static constexpr size_t MAX_VERTICES = 20;
-    static constexpr size_t MAX_FACES = 20;
+    static constexpr size_t MAX_VERTICES = 1000;
+    static constexpr size_t MAX_FACES = 1000;
     static constexpr size_t MAX_MESHES = 5;
 
     Sphere spheres[MAX_SPHERES];

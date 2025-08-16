@@ -1,8 +1,6 @@
 # File produced by Open Asset Import Library (http://www.assimp.sf.net)
 # (assimp v5.4.0)
 
-mtllib Knight.mtl
-
 # 234 vertex positions
 v 28.1454563 51.2716866 67.9514542
 v 0 51.2716866 79.6100922
@@ -476,7 +474,6 @@ vn -88.2958374 -45.0453758 13.2196102
 
 # Mesh 'Circle.003' with 456 faces
 g Circle.003
-usemtl DefaultMaterial
 f  1//1 2//1 3//1
 f  1//1 3//1 4//1
 f  5//2 1//2 4//1

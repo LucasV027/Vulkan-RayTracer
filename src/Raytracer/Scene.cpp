@@ -98,21 +98,29 @@ void Scene::AddMesh(const std::filesystem::path& path) {
         return;
     }
 
+    auto minBoundingBox = glm::vec3(FLT_MAX);
+    auto maxBoundingBox = glm::vec3(-FLT_MAX);
     for (size_t i = sceneData.verticesCount; i < sceneData.verticesCount + verticesCount; i++) {
-        const auto vertex = &vertices.at((i - sceneData.verticesCount) * 3);
-        sceneData.vertices[i] = glm::vec4(vertex[0], vertex[1], vertex[2], 1.0f);
+        const auto vertexRaw = &vertices.at((i - sceneData.verticesCount) * 3);
+        const auto vertex = glm::vec3(vertexRaw[0], vertexRaw[1], vertexRaw[2]);
+        minBoundingBox = glm::min(minBoundingBox, vertex);
+        maxBoundingBox = glm::max(maxBoundingBox, vertex);
+
+        sceneData.vertices[i] = glm::vec4(vertex, 1.0f);
     }
 
     const auto verticesStart = sceneData.verticesCount;
     for (size_t i = sceneData.facesCount; i < sceneData.facesCount + indicesCount; i++) {
         const auto face = &indices.at((i - sceneData.facesCount) * 3);
-        // We offset the indices by the current start of our vertices buffer
+        // We offset the indices by the current start of our vertex buffer
         sceneData.faces[i] = glm::uvec4(face[0], face[1], face[2], 0) + glm::uvec4(verticesStart);
     }
 
     auto& newMesh = sceneData.meshes[sceneData.meshCount++];
     newMesh.count = indicesCount;
     newMesh.start = sceneData.facesCount;
+    newMesh.minBoundingBox = minBoundingBox;
+    newMesh.maxBoundingBox = maxBoundingBox;
     newMesh.mat = {
         .color = {0.8f, 0.5f, 0.0f},
         .smoothness = 0.0f,
