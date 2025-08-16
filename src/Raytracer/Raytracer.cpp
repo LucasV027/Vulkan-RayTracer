@@ -11,5 +11,6 @@ void Raytracer::Update(const uint32_t newWidth, const uint32_t newHeight) {
     if (newWidth != width || newHeight != height) {
         width = newWidth;
         height = newHeight;
+        SetAllDirty();
     }
 }

@@ -12,14 +12,11 @@ ComputePipeline::ComputePipeline(const std::shared_ptr<VulkanContext>& context) 
 }
 
 void ComputePipeline::Update(const Raytracer& raytracer) {
-    bool resize = false;
-    const auto width = raytracer.GetWidth();
-    const auto height = raytracer.GetHeight();
+    if (raytracer.IsAnyDirty()) pushData.frameIndex = 0;
 
-
-    if (currentWidth != width || currentHeight != height) {
-        currentWidth = width;
-        currentHeight = height;
+    if (raytracer.IsDirty(DirtyFlags::Size)) {
+        currentWidth = raytracer.GetWidth();
+        currentHeight = raytracer.GetHeight();
 
         vulkanContext->device.waitIdle();
 
@@ -27,21 +24,18 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
         CreateDescriptorSet();
         ComputeGroupCount();
 
-        pushData.frameIndex = 0;
-        resize = true;
+        raytracer.ClearDirty(DirtyFlags::Size);
     }
 
-    if (raytracer.IsDirty(DirtyFlags::Camera) || resize) {
+    if (raytracer.IsDirty(DirtyFlags::Camera)) {
         cameraBuffer->Update(raytracer.GetCamera().GetData());
-        pushData.frameIndex = 0;
         raytracer.ClearDirty(DirtyFlags::Camera);
     }
 
-    if (raytracer.IsDirty(DirtyFlags::Scene) || resize) {
+    if (raytracer.IsDirty(DirtyFlags::Scene)) {
         stagingBuffer->Update(raytracer.GetScene().GetData());
-        uploadStaging = true;
-        pushData.frameIndex = 0;
         raytracer.ClearDirty(DirtyFlags::Scene);
+        uploadStaging = true;
     }
 
     pushData.frameIndex++;
