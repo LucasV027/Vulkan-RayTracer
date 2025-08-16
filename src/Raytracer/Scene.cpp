@@ -122,7 +122,6 @@ void Scene::AddMesh(const std::filesystem::path& path) {
 
     sceneData.verticesCount += verticesCount;
     sceneData.facesCount += indicesCount;
-    needsUpdate = true;
 }
 
 void Scene::RemoveMesh(const uint32_t idx) {
@@ -170,7 +169,5 @@ void Scene::RemoveMesh(const uint32_t idx) {
         sceneData.meshes[i].start -= indicesCount;
     }
     sceneData.meshCount--;
-
-    needsUpdate = true;
 }
 

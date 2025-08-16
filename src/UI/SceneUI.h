@@ -16,5 +16,5 @@ namespace UI {
     bool DrawSphere(Sphere& sphere);
     bool DrawTransform(glm::mat4& transform);
     bool DrawMesh(Mesh& mesh);
-    void DrawScene(Scene& scene);
+    bool DrawScene(Scene& scene);
 }

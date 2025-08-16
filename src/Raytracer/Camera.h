@@ -22,15 +22,11 @@ public:
     glm::vec3 GetPosition() const { return cameraData.cameraPosition; }
     glm::vec3 GetForward() const { return cameraData.cameraForward; }
 
-    bool NeedsUpdate() const { return needsUpdate; }
-    void ResetUpdate() const { needsUpdate = false; }
-
 private:
     void UpdateVectors();
 
 private:
     CameraData cameraData;
     float fovDeg;
-    mutable bool needsUpdate = true;
 };
 

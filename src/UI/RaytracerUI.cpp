@@ -4,6 +4,11 @@
 #include "SceneUI.h"
 
 void UI::DrawRaytracer(Raytracer& raytracer) {
-    DrawCamera(raytracer.GetCamera());
-    DrawScene(raytracer.GetScene());
+    if (DrawCamera(raytracer.GetCamera())) {
+        raytracer.SetDirty(DirtyFlags::Camera);
+    }
+
+    if (DrawScene(raytracer.GetScene())) {
+        raytracer.SetDirty(DirtyFlags::Scene);
+    }
 }

@@ -7,13 +7,15 @@ CameraController::CameraController(const std::shared_ptr<Window>& window,
     camera(camera),
     config(config) {}
 
-void CameraController::Update(const float dt) {
-    HandleKeyboard(dt);
-    HandleMouse(dt);
-    HandleScroll(dt);
+bool CameraController::Update(const float dt) {
+    bool changed = false;
+    changed |= HandleKeyboard(dt);
+    changed |= HandleMouse(dt);
+    changed |= HandleScroll(dt);
+    return changed;
 }
 
-void CameraController::HandleKeyboard(const float dt) const {
+bool CameraController::HandleKeyboard(const float dt) const {
     const auto& data = camera->GetData();
     glm::vec3 position = data.cameraPosition;
 
@@ -36,14 +38,16 @@ void CameraController::HandleKeyboard(const float dt) const {
 
     if (glm::length(position - data.cameraPosition) > 0.001f) {
         camera->SetPosition(position);
+        return true;
     }
+    return false;
 }
 
-void CameraController::HandleMouse(const float dt) {
+bool CameraController::HandleMouse(const float dt) {
     if (!window->IsMouseButtonDown(GLFW_MOUSE_BUTTON_1)) {
         window->SetMouseLock(false);
         firstClick = true;
-        return;
+        return false;
     }
 
     window->SetMouseLock(true);
@@ -81,11 +85,12 @@ void CameraController::HandleMouse(const float dt) {
     newForward.z = sinf(yawRad) * cosf(pitchRad);
 
     camera->SetOrientation(glm::normalize(newForward));
+    return true;
 }
 
-void CameraController::HandleScroll(const float dt) const {
+bool CameraController::HandleScroll(const float dt) const {
     const auto scroll = window->GetScrollOffset();
-    if (scroll == 0.0) return;
+    if (scroll == 0.0) return false;
 
     const auto& currentFov = camera->GetFovDeg();
     float newFov = currentFov - static_cast<float>(scroll) * config.fovScrollSpeed;
@@ -93,5 +98,7 @@ void CameraController::HandleScroll(const float dt) const {
 
     if (abs(newFov - currentFov) > 0.1f) {
         camera->SetFov(newFov);
+        return true;
     }
+    return false;
 }

@@ -15,8 +15,7 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
     bool resize = false;
     const auto width = raytracer.GetWidth();
     const auto height = raytracer.GetHeight();
-    const auto& camera = raytracer.GetCamera();
-    const auto& scene = raytracer.GetScene();
+
 
     if (currentWidth != width || currentHeight != height) {
         currentWidth = width;
@@ -32,17 +31,17 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
         resize = true;
     }
 
-    if (camera.NeedsUpdate() || resize) {
-        cameraBuffer->Update(camera.GetData());
-        camera.ResetUpdate();
+    if (raytracer.IsDirty(DirtyFlags::Camera) || resize) {
+        cameraBuffer->Update(raytracer.GetCamera().GetData());
         pushData.frameIndex = 0;
+        raytracer.ClearDirty(DirtyFlags::Camera);
     }
 
-    if (scene.NeedsUpdate() || resize) {
-        stagingBuffer->Update(scene.GetData());
+    if (raytracer.IsDirty(DirtyFlags::Scene) || resize) {
+        stagingBuffer->Update(raytracer.GetScene().GetData());
         uploadStaging = true;
-        scene.ResetUpdate();
         pushData.frameIndex = 0;
+        raytracer.ClearDirty(DirtyFlags::Scene);
     }
 
     pushData.frameIndex++;

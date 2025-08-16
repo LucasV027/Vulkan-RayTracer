@@ -3,5 +3,5 @@
 #include "Raytracer/Camera.h"
 
 namespace UI {
-    void DrawCamera(Camera& camera);
+    bool DrawCamera(Camera& camera);
 };

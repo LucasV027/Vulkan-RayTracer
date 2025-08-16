@@ -21,12 +21,12 @@ public:
                      const CameraControllerConfig& config = {});
     ~CameraController() = default;
 
-    void Update(float dt);
+    bool Update(float dt);
 
 private:
-    void HandleKeyboard(float dt) const;
-    void HandleMouse(float dt);
-    void HandleScroll(float dt) const;
+    bool HandleKeyboard(float dt) const;
+    bool HandleMouse(float dt);
+    bool HandleScroll(float dt) const;
 
 private:
     std::shared_ptr<Window> window;

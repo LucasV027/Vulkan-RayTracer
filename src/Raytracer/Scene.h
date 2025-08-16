@@ -20,11 +20,6 @@ public:
     SceneData& GetData() { return sceneData; }
     const SceneData& GetData() const { return sceneData; }
 
-    bool NeedsUpdate() const { return needsUpdate; }
-    void ResetUpdate() const { needsUpdate = false; }
-    void NotifyUpdate() const { needsUpdate = true; }
-
 private:
     SceneData sceneData = {};
-    mutable bool needsUpdate = true;
 };

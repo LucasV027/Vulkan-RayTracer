@@ -130,9 +130,10 @@ bool UI::DrawMesh(Mesh& mesh) {
     return changed;
 }
 
-void UI::DrawScene(Scene& scene) {
-    auto& sceneData = scene.GetData();
+bool UI::DrawScene(Scene& scene) {
     bool changed = false;
+
+    auto& sceneData = scene.GetData();
     static std::string filename;
 
     if (ImGui::TreeNode("Scene")) {
@@ -174,7 +175,5 @@ void UI::DrawScene(Scene& scene) {
         ImGui::TreePop();
     }
 
-    if (changed) {
-        scene.NotifyUpdate();
-    }
+    return changed;
 }

@@ -2,9 +2,15 @@
 #include <memory>
 
 #include "Camera.h"
+#include "DirtySystem.h"
 #include "Scene.h"
 
-class Raytracer {
+enum class DirtyFlags {
+    Camera = 0,
+    Scene = 1,
+};
+
+class Raytracer : public DirtySystem<DirtyFlags, 2> {
 public:
     Raytracer(uint32_t width, uint32_t height);
     ~Raytracer() = default;

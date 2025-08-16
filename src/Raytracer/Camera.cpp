@@ -15,19 +15,16 @@ Camera::Camera(const glm::vec3& position,
 
 void Camera::SetPosition(const glm::vec3& newPosition) {
     cameraData.cameraPosition = newPosition;
-    needsUpdate = true;
 }
 
 void Camera::SetOrientation(const glm::vec3& newOrientation) {
     cameraData.cameraForward = glm::normalize(newOrientation);
     UpdateVectors();
-    needsUpdate = true;
 }
 
 void Camera::SetFov(const float newFovDeg) {
     fovDeg = glm::clamp(newFovDeg, 1.0f, 179.0f);
     cameraData.fovRad = glm::radians(fovDeg);
-    needsUpdate = true;
 }
 
 void Camera::UpdateVectors() {

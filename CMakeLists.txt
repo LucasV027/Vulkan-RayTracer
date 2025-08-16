@@ -55,6 +55,7 @@ add_executable(${PROJECT_NAME}
         src/Raytracer/ComputeData.h
         src/Core/Math.cpp
         src/Core/Math.h
+        src/Raytracer/DirtySystem.h
 )
 
 # NOTE: This hardcoded path works only for local development builds.
