@@ -12,7 +12,8 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
         vulkanContext = std::make_shared<VulkanContext>(window);
         renderer = std::make_unique<Renderer>(window, vulkanContext);
         raytracer = std::make_unique<Raytracer>(width, height);
-        cameraController = std::make_unique<CameraController>(window, raytracer->GetCameraRef());
+        cameraController = std::make_unique<CameraController>(window);
+        cameraController->Register(raytracer->GetCameraRef());
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);

@@ -16,21 +16,22 @@ struct CameraControllerConfig {
 
 class CameraController {
 public:
-    CameraController(const std::shared_ptr<Window>& window,
-                     const std::shared_ptr<Camera>& camera,
-                     const CameraControllerConfig& config = {});
+    explicit CameraController(const std::shared_ptr<Window>& window,
+                              const CameraControllerConfig& config = {});
     ~CameraController() = default;
+
+    void Register(const std::shared_ptr<Camera>& camera);
 
     bool Update(float dt);
 
 private:
-    bool HandleKeyboard(float dt) const;
-    bool HandleMouse(float dt);
-    bool HandleScroll(float dt) const;
+    bool HandleKeyboard(Camera& camera, float dt) const;
+    bool HandleMouse(Camera& camera, float dt);
+    bool HandleScroll(Camera& camera, float dt) const;
 
 private:
     std::shared_ptr<Window> window;
-    std::shared_ptr<Camera> camera;
+    std::weak_ptr<Camera> weakCamera;
 
     CameraControllerConfig config;
 
