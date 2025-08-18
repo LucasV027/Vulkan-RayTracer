@@ -5,17 +5,11 @@ CameraController::CameraController(const std::shared_ptr<Window>& window,
     window(window),
     config(config) {}
 
-void CameraController::Register(const std::shared_ptr<Camera>& camera) {
-    weakCamera = camera;
-}
-
-bool CameraController::Update(const float dt) {
+bool CameraController::Update(Camera& camera, const float dt) {
     bool changed = false;
-    if (const auto camera = weakCamera.lock()) {
-        changed |= HandleKeyboard(*camera, dt);
-        changed |= HandleMouse(*camera, dt);
-        changed |= HandleScroll(*camera, dt);
-    }
+    changed |= HandleKeyboard(camera, dt);
+    changed |= HandleMouse(camera, dt);
+    changed |= HandleScroll(camera, dt);
     return changed;
 }
 

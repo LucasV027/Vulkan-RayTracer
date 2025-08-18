@@ -3,5 +3,5 @@
 #include "Raytracer/Raytracer.h"
 
 namespace UI {
-    bool DrawRaytracer(Raytracer& raytracer);
+    void DrawRaytracer(Raytracer& raytracer);
 }

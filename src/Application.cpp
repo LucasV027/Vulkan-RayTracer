@@ -13,7 +13,6 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
         renderer = std::make_unique<Renderer>(window, vulkanContext);
         raytracer = std::make_unique<Raytracer>(width, height);
         cameraController = std::make_unique<CameraController>(window);
-        cameraController->Register(raytracer->GetCameraRef());
     } catch (const std::exception& e) {
         LOGE("Failed to initialize application: {}", e.what());
         std::exit(EXIT_FAILURE);
@@ -39,7 +38,11 @@ void Application::Run() {
 
 void Application::Update(const float dt) const {
     window->PollEvents();
-    if (cameraController->Update(dt)) raytracer->SetDirty(DirtyFlags::Camera);
+
+    if (cameraController->Update(raytracer->GetCamera(), dt)) {
+        raytracer->SetDirty(DirtyFlags::Camera);
+    }
+
     raytracer->Update(window->GetWidth(), window->GetHeight());
     renderer->Update(*raytracer);
 }

@@ -18,11 +18,10 @@ class CameraController {
 public:
     explicit CameraController(const std::shared_ptr<Window>& window,
                               const CameraControllerConfig& config = {});
+
     ~CameraController() = default;
 
-    void Register(const std::shared_ptr<Camera>& camera);
-
-    bool Update(float dt);
+    bool Update(Camera& camera, float dt);
 
 private:
     bool HandleKeyboard(Camera& camera, float dt) const;
@@ -31,7 +30,6 @@ private:
 
 private:
     std::shared_ptr<Window> window;
-    std::weak_ptr<Camera> weakCamera;
 
     CameraControllerConfig config;
 

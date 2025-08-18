@@ -192,16 +192,12 @@ void from_json(const Json& j, Camera& camera) {
 // ---- Raytracer ----
 void to_json(Json& j, const Raytracer& raytracer) {
     j = Json{
-        {"camera", *raytracer.camera},
+        {"camera", raytracer.camera},
         {"scene", raytracer.scene},
     };
 }
 
 void from_json(const Json& j, Raytracer& raytracer) {
-    if (!raytracer.camera) {
-        raytracer.camera = std::make_shared<Camera>();
-    }
-
-    j.at("camera").get_to(*raytracer.camera);
+    j.at("camera").get_to(raytracer.camera);
     j.at("scene").get_to(raytracer.scene);
 }

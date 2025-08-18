@@ -8,9 +8,7 @@
 #include "CameraUI.h"
 #include "SceneUI.h"
 
-bool UI::DrawRaytracer(Raytracer& raytracer) {
-    bool changed = false;
-
+void UI::DrawRaytracer(Raytracer& raytracer) {
     if (ImGui::Button("Load")) ImGui::OpenPopup("LoadPopup");
     ImGui::SameLine();
     if (ImGui::Button("Save")) ImGui::OpenPopup("SavePopup");
@@ -22,7 +20,7 @@ bool UI::DrawRaytracer(Raytracer& raytracer) {
                        filename,
                        ".json",
                        [&](const std::filesystem::path& filepath) {
-                           changed = raytracer.LoadFromFile(filepath);
+                           raytracer.LoadFromFile(filepath);
                        });
 
     InputFilenamePopup("SavePopup",
@@ -41,6 +39,4 @@ bool UI::DrawRaytracer(Raytracer& raytracer) {
     if (DrawScene(raytracer.GetScene())) {
         raytracer.SetDirty(DirtyFlags::Scene);
     }
-
-    return changed;
 }

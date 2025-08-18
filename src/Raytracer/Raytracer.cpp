@@ -8,16 +8,13 @@
 Raytracer::Raytracer(const uint32_t width, const uint32_t height) : width(width),
                                                                     height(height),
                                                                     scene({}) {
-    camera = std::make_shared<Camera>();
     SetAllDirty();
 }
 
-bool Raytracer::LoadFromFile(const std::filesystem::path& filepath) {
-    bool success = false;
-
+void Raytracer::LoadFromFile(const std::filesystem::path& filepath) {
     if (filepath.extension() != ".json") {
         LOGE("Loading only support json file");
-        return success;
+        return;
     }
 
     std::ifstream read(filepath);
@@ -29,14 +26,12 @@ bool Raytracer::LoadFromFile(const std::filesystem::path& filepath) {
             from_json(r, *this);
             LOGI("Successfully loaded file: {}", filepath.string());
             SetAllDirty();
-            success = true;
         } catch (const Json::exception& e) {
             LOGE("Failed to parse JSON: {}", e.what());
         }
 
         read.close();
     }
-    return success;
 }
 
 void Raytracer::SaveToFile(const std::filesystem::path& filepath) {

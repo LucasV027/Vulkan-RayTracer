@@ -18,13 +18,13 @@ public:
     Raytracer(uint32_t width, uint32_t height);
     ~Raytracer() = default;
 
-    bool LoadFromFile(const std::filesystem::path& filepath);
+    void LoadFromFile(const std::filesystem::path& filepath);
     void SaveToFile(const std::filesystem::path& filepath);
+
     void Update(uint32_t newWidth, uint32_t newHeight);
 
-    Camera& GetCamera() { return *camera; }
-    const Camera& GetCamera() const { return *camera; }
-    const std::shared_ptr<Camera>& GetCameraRef() { return camera; }
+    Camera& GetCamera() { return camera; }
+    const Camera& GetCamera() const { return camera; }
 
     Scene& GetScene() { return scene; }
     const Scene& GetScene() const { return scene; }
@@ -35,6 +35,6 @@ public:
 private:
     uint32_t width;
     uint32_t height;
-    std::shared_ptr<Camera> camera;
+    Camera camera;
     Scene scene;
 };
