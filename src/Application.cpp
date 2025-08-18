@@ -3,10 +3,8 @@
 #include <thread>
 #include <chrono>
 
-#include <imgui.h>
-
 #include "Core/Log.h"
-#include "UI/RaytracerUI.h"
+#include "UI/ApplicationUI.h"
 
 Application::Application(const std::string& title, uint32_t width, uint32_t height) {
     try {
@@ -22,7 +20,7 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
     }
 }
 
-void Application::Run() const {
+void Application::Run() {
     using clock = std::chrono::high_resolution_clock;
 
     auto lastTick = clock::now();
@@ -39,14 +37,6 @@ void Application::Run() const {
     }
 }
 
-void Application::DrawUI() const {
-    ImGui::Begin("[INFO]");
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Window size: (%d, %d)", window->GetWidth(), window->GetHeight());
-    UI::DrawRaytracer(*raytracer);
-    ImGui::End();
-}
-
 void Application::Update(const float dt) const {
     window->PollEvents();
     if (cameraController->Update(dt)) raytracer->SetDirty(DirtyFlags::Camera);
@@ -54,8 +44,8 @@ void Application::Update(const float dt) const {
     renderer->Update(*raytracer);
 }
 
-void Application::Render() const {
+void Application::Render() {
     renderer->Begin();
-    DrawUI();
+    UI::DrawApplication(*this);
     renderer->Draw();
 }

@@ -8,17 +8,19 @@
 #include "Renderer/Renderer.h"
 #include "Raytracer/Raytracer.h"
 #include "Controller/CameraController.h"
+#include "UI/ApplicationUI.h"
 
 class Application {
 public:
     Application(const std::string& title, uint32_t width, uint32_t height);
-    void Run() const;
+    void Run();
     ~Application() = default;
 
 private:
-    void DrawUI() const;
     void Update(float dt) const;
-    void Render() const;
+    void Render();
+
+    friend void UI::DrawApplication(Application& app);
 
 private:
     std::shared_ptr<Window> window;
