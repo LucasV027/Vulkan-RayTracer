@@ -41,12 +41,14 @@ public:
                                                    vk::ImageView imageView,
                                                    vk::ImageLayout layout);
 
+    explicit DescriptorSetWriter(size_t initialCapacity = 10);
     void Update(vk::Device device, vk::DescriptorSet descriptorSet);
     void Clear();
 
 private:
+    using DescriptorInfo = std::variant<vk::DescriptorBufferInfo, vk::DescriptorImageInfo>;
+
+    std::vector<DescriptorInfo> descriptorInfos;
     std::vector<vk::WriteDescriptorSet> writes;
-    std::vector<vk::DescriptorBufferInfo> bufferInfos;
-    std::vector<vk::DescriptorImageInfo> imageInfos;
 };
 

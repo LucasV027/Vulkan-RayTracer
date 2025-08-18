@@ -38,18 +38,16 @@ DescriptorSetWriter& DescriptorSetWriter::WriteBuffer(const uint32_t binding,
                                                       const vk::DeviceSize size,
                                                       const vk::DescriptorType type,
                                                       const vk::DeviceSize offset) {
-    bufferInfos.push_back({
+    descriptorInfos.emplace_back(vk::DescriptorBufferInfo{
         .buffer = buffer,
         .offset = offset,
         .range = size
     });
 
-    writes.push_back({
-        .sType = vk::StructureType::eWriteDescriptorSet,
+    writes.emplace_back(vk::WriteDescriptorSet{
         .dstBinding = binding,
         .descriptorCount = 1,
         .descriptorType = type,
-        .pBufferInfo = &bufferInfos.back()
     });
 
     return *this;
@@ -60,18 +58,16 @@ DescriptorSetWriter& DescriptorSetWriter::WriteImage(const uint32_t binding,
                                                      const vk::Sampler sampler,
                                                      const vk::ImageLayout layout,
                                                      const vk::DescriptorType type) {
-    imageInfos.push_back({
+    descriptorInfos.emplace_back(vk::DescriptorImageInfo{
         .sampler = sampler,
         .imageView = imageView,
-        .imageLayout = layout
+        .imageLayout = layout,
     });
 
-    writes.push_back({
-        .sType = vk::StructureType::eWriteDescriptorSet,
+    writes.emplace_back(vk::WriteDescriptorSet{
         .dstBinding = binding,
         .descriptorCount = 1,
         .descriptorType = type,
-        .pImageInfo = &imageInfos.back()
     });
 
     return *this;
@@ -80,17 +76,15 @@ DescriptorSetWriter& DescriptorSetWriter::WriteImage(const uint32_t binding,
 DescriptorSetWriter& DescriptorSetWriter::WriteStorageImage(const uint32_t binding,
                                                             const vk::ImageView imageView,
                                                             const vk::ImageLayout layout) {
-    imageInfos.push_back({
+    descriptorInfos.emplace_back(vk::DescriptorImageInfo{
         .imageView = imageView,
-        .imageLayout = layout
+        .imageLayout = layout,
     });
 
-    writes.push_back({
-        .sType = vk::StructureType::eWriteDescriptorSet,
+    writes.emplace_back(vk::WriteDescriptorSet{
         .dstBinding = binding,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eStorageImage,
-        .pImageInfo = &imageInfos.back()
     });
 
     return *this;
@@ -100,30 +94,43 @@ DescriptorSetWriter& DescriptorSetWriter::WriteCombinedImageSampler(const uint32
                                                                     const vk::Sampler sampler,
                                                                     const vk::ImageView imageView,
                                                                     const vk::ImageLayout layout) {
-    imageInfos.push_back({
+    descriptorInfos.emplace_back(vk::DescriptorImageInfo{
         .sampler = sampler,
         .imageView = imageView,
         .imageLayout = layout
     });
 
-    writes.push_back({
-        .sType = vk::StructureType::eWriteDescriptorSet,
+    writes.emplace_back(vk::WriteDescriptorSet{
         .dstBinding = binding,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-        .pImageInfo = &imageInfos.back()
     });
 
     return *this;
 }
 
+DescriptorSetWriter::DescriptorSetWriter(const size_t initialCapacity) {
+    descriptorInfos.reserve(initialCapacity);
+    writes.reserve(initialCapacity);
+}
+
 void DescriptorSetWriter::Update(const vk::Device device, const vk::DescriptorSet descriptorSet) {
-    for (auto& write : writes) write.dstSet = descriptorSet;
+    for (size_t i = 0; i < writes.size(); i++) {
+        auto& write = writes[i];
+        write.dstSet = descriptorSet;
+
+        auto& descriptorInfo = descriptorInfos[i];
+        if (std::holds_alternative<vk::DescriptorBufferInfo>(descriptorInfo)) {
+            write.pBufferInfo = &std::get<vk::DescriptorBufferInfo>(descriptorInfo);
+        } else {
+            write.pImageInfo = &std::get<vk::DescriptorImageInfo>(descriptorInfo);
+        }
+    }
+
     device.updateDescriptorSets(writes, {});
 }
 
 void DescriptorSetWriter::Clear() {
+    descriptorInfos.clear();
     writes.clear();
-    bufferInfos.clear();
-    imageInfos.clear();
 }
