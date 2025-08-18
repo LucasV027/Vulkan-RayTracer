@@ -143,6 +143,7 @@ bool UI::DrawScene(Scene& scene) {
                                             [] { ImGui::OpenPopup("LoadPopup"); }); // Add item callback
 
             InputFilenamePopup("LoadPopup",
+                               "Load",
                                filename,
                                ".obj",
                                [&](const std::filesystem::path& filepath) {

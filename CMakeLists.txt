@@ -7,23 +7,21 @@ add_executable(${PROJECT_NAME}
         src/main.cpp
         src/Application.cpp
         src/Application.h
+
         src/Core/Log.h
         src/Core/File.h
         src/Core/File.cpp
+        src/Core/Math.cpp
+        src/Core/Math.h
+        src/Core/DirtySystem.h
+
         src/Window/Window.cpp
         src/Window/Window.h
+
         src/Vulkan/Base.cpp
         src/Vulkan/Base.h
-        src/Renderer/Renderer.cpp
-        src/Renderer/Renderer.h
-        src/Renderer/ComputePipeline.cpp
-        src/Renderer/ComputePipeline.h
         src/Vulkan/VulkanContext.cpp
         src/Vulkan/VulkanContext.h
-        src/Renderer/GraphicsPipeline.cpp
-        src/Renderer/GraphicsPipeline.h
-        src/Renderer/ImGuiPipeline.cpp
-        src/Renderer/ImGuiPipeline.h
         src/Vulkan/Swapchain.cpp
         src/Vulkan/Swapchain.h
         src/Vulkan/DescriptorSet.h
@@ -35,27 +33,44 @@ add_executable(${PROJECT_NAME}
         src/Vulkan/Image.h
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
+
+        src/Renderer/Renderer.cpp
+        src/Renderer/Renderer.h
+        src/Renderer/ComputePipeline.cpp
+        src/Renderer/ComputePipeline.h
+        src/Renderer/GraphicsPipeline.cpp
+        src/Renderer/GraphicsPipeline.h
+        src/Renderer/ImGuiPipeline.cpp
+        src/Renderer/ImGuiPipeline.h
+
         src/Raytracer/Camera.cpp
         src/Raytracer/Camera.h
         src/Raytracer/Scene.cpp
         src/Raytracer/Scene.h
-        src/Controller/CameraController.cpp
-        src/Controller/CameraController.h
         src/Raytracer/Raytracer.cpp
         src/Raytracer/Raytracer.h
+        src/Raytracer/ComputeData.h
+
+        src/Controller/CameraController.cpp
+        src/Controller/CameraController.h
+
         src/Extern/objload.h
+
+        src/UI/BaseUI.h
+        src/UI/BaseUI.cpp
         src/UI/SceneUI.cpp
         src/UI/SceneUI.h
-        src/UI/BaseUI.h
-        src/UI/Base.cpp
         src/UI/RaytracerUI.cpp
         src/UI/RaytracerUI.h
         src/UI/CameraUI.cpp
         src/UI/CameraUI.h
-        src/Raytracer/ComputeData.h
-        src/Core/Math.cpp
-        src/Core/Math.h
-        src/Raytracer/DirtySystem.h
+
+        src/Serialize/Serialize.cpp
+        src/Serialize/Serialize.h
+        src/Serialize/Base.h
+        src/Serialize/Base.cpp
+        src/UI/ApplicationUI.cpp
+        src/UI/ApplicationUI.h
 )
 
 # NOTE: This hardcoded path works only for local development builds.
@@ -91,4 +106,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Vulkan::Vulkan
         glfw
         glm
+        nlohmann_json::nlohmann_json
 )

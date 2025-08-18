@@ -3,9 +3,12 @@
 #include <filesystem>
 
 #include "ComputeData.h"
+#include "Serialize/Base.h"
 
 class Scene {
 public:
+    Serializable(Scene);
+
     Scene();
     ~Scene() = default;
 

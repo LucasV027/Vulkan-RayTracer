@@ -12,6 +12,8 @@ void UI::DrawApplication(Application& app) {
     ImGui::SeparatorText("[WINDOW]");
     ImGui::Text("Window size: (%d, %d)", app.window->GetWidth(), app.window->GetHeight());
     ImGui::SeparatorText("[RAYTRACER]");
-    DrawRaytracer(*app.raytracer);
+    if (DrawRaytracer(*app.raytracer)) {
+        app.cameraController->Register(app.raytracer->GetCameraRef());
+    }
     ImGui::End();
 }

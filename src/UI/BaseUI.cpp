@@ -11,6 +11,7 @@ static auto inputTextCallback = [](ImGuiInputTextCallbackData* data) {
 };
 
 void UI::InputFilenamePopup(const char* strId,
+                            const char* buttonLabel,
                             std::string& filename,
                             const std::filesystem::path& extension,
                             const std::function<void(const std::filesystem::path&)>& callback) {
@@ -20,7 +21,7 @@ void UI::InputFilenamePopup(const char* strId,
 
         ImGui::Separator();
 
-        if (ImGui::Button("Load")) {
+        if (ImGui::Button(buttonLabel)) {
             if (!filename.empty()) {
                 auto filePath = ASSETS_PATH / static_cast<std::filesystem::path>(filename);
                 filePath.replace_extension(extension);

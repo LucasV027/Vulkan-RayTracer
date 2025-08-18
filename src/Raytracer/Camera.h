@@ -3,9 +3,12 @@
 #include <glm/glm.hpp>
 
 #include "ComputeData.h"
+#include "Serialize/Base.h"
 
 class Camera {
 public:
+    Serializable(Camera);
+
     explicit Camera(const glm::vec3& position = {0.f, 0.f, 0.f},
                     const glm::vec3& up = {0.f, 1.f, 0.f},
                     const glm::vec3& orientation = {0.f, 0.f, -1.f},
@@ -17,7 +20,9 @@ public:
     void SetOrientation(const glm::vec3& newOrientation);
     void SetFov(float newFovDeg);
 
+    CameraData& GetData() { return cameraData; }
     const CameraData& GetData() const { return cameraData; }
+    float& GetFovDeg() { return fovDeg; }
     float GetFovDeg() const { return fovDeg; }
     glm::vec3 GetPosition() const { return cameraData.cameraPosition; }
     glm::vec3 GetForward() const { return cameraData.cameraForward; }

@@ -9,6 +9,7 @@
 
 namespace UI {
     void InputFilenamePopup(const char* strId,
+                            const char* buttonLabel,
                             std::string& filename,
                             const std::filesystem::path& extension,
                             const std::function<void(const std::filesystem::path&)>& callback);

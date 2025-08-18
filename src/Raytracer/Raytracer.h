@@ -1,8 +1,8 @@
 #pragma once
 #include <memory>
 
+#include "Core/DirtySystem.h"
 #include "Camera.h"
-#include "DirtySystem.h"
 #include "Scene.h"
 
 enum class DirtyFlags {
@@ -13,9 +13,13 @@ enum class DirtyFlags {
 
 class Raytracer : public DirtySystem<DirtyFlags, 3> {
 public:
+    Serializable(Raytracer);
+
     Raytracer(uint32_t width, uint32_t height);
     ~Raytracer() = default;
 
+    bool LoadFromFile(const std::filesystem::path& filepath);
+    void SaveToFile(const std::filesystem::path& filepath);
     void Update(uint32_t newWidth, uint32_t newHeight);
 
     Camera& GetCamera() { return *camera; }
