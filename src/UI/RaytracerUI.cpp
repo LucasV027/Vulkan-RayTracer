@@ -37,7 +37,7 @@ void UI::DrawRaytracer(Raytracer& raytracer) {
     }
 
     if (DrawScene(raytracer.GetScene())) {
-        raytracer.SetDirty(DirtyFlags::Scene);
-        raytracer.SetDirty(DirtyFlags::BVH);
+        raytracer.SetDirty(DirtyFlags::SceneData);
+        raytracer.SetDirty(DirtyFlags::Spheres);
     }
 }

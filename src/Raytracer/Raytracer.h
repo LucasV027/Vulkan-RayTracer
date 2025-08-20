@@ -6,14 +6,16 @@
 #include "Scene.h"
 
 enum class DirtyFlags {
-    Camera = 0,
-    Scene = 1,
-    Size = 2,
-    BVH = 3,
-    Spheres = 4,
+    Size = 0,
+    Camera = 1,
+    SceneData = 2,
+    Meshes = 3,
+    Triangles = 4,
+    BVH_Nodes = 5,
+    Spheres = 6,
 };
 
-class Raytracer : public DirtySystem<DirtyFlags, 5> {
+class Raytracer : public DirtySystem<DirtyFlags, 7> {
 public:
     Serializable(Raytracer);
 

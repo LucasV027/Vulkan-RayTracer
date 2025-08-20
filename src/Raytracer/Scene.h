@@ -16,26 +16,19 @@ public:
 
     void AddSphere();
     void RemoveSphere(uint32_t idx);
-    void AddMesh(const std::filesystem::path& path);
-    void RemoveMesh(uint32_t idx);
+
+    const SceneData& GetSceneData() const;
 
     bool SphereFull() const { return spheres.size() == Sphere::MAX_SPHERES; }
-    bool MeshFull() const { return sceneData.meshCount == SceneData::MAX_MESHES; }
 
-    SceneData& GetData() { return sceneData; }
-    const SceneData& GetData() const { return sceneData; }
-
-    const BVH_Scene& GetBVH() const { return bvhScene; }
     const std::vector<Sphere>& GetSpheres() const { return spheres; }
     std::vector<Sphere>& GetSpheres() { return spheres; }
 
-    void CreateBVH(const obj::Model& model);
-
 private:
-    std::vector<Sphere> spheres;
-    SceneData sceneData = {};
+    mutable SceneData sceneData = {};
 
-    std::unique_ptr<BVH> bvh;
+    std::vector<Mesh> meshes;
     std::vector<Triangle> triangles;
-    BVH_Scene bvhScene;
+    std::vector<BVH_FlattenNode> bvhNodes;
+    std::vector<Sphere> spheres;
 };

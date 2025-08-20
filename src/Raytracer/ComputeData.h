@@ -30,43 +30,23 @@ struct LAYOUT_STD140 Material {
     float emissionStrength;
 };
 
-struct LAYOUT_STD140 Sphere {
-    static constexpr size_t MAX_SPHERES = 20;
-
-    glm::vec3 pos;
-    float rad;
-    Material mat;
+struct LAYOUT_STD140 SceneData {
+    uint32_t numTriangles;
+    uint32_t numSpheres;
+    uint32_t numMeshes;
+    PAD(1);
 };
 
 struct LAYOUT_STD140 Mesh {
+    static constexpr size_t MAX_MESHES = 10;
+
     uint32_t start;
-    uint32_t count;
-    PAD(2);
-    glm::vec3 minBoundingBox;
-    PAD(1);
-    glm::vec3 maxBoundingBox;
-    PAD(1);
+    PAD(3);
     Material mat;
-    glm::mat4 transform = glm::mat4(1.0f);
-};
-
-struct LAYOUT_STD140 SceneData {
-    static constexpr size_t MAX_VERTICES = 1000;
-    static constexpr size_t MAX_FACES = 1000;
-    static constexpr size_t MAX_MESHES = 5;
-
-    glm::vec4 vertices[MAX_VERTICES];
-    glm::uvec4 faces[MAX_FACES];
-    Mesh meshes[MAX_MESHES];
-
-    uint32_t sphereCount;
-    uint32_t verticesCount;
-    uint32_t meshCount;
-    uint32_t facesCount;
 };
 
 struct LAYOUT_STD140 Triangle {
-    static constexpr size_t MAX_TRIANGLES = 2000;
+    static constexpr size_t MAX_TRIANGLES = 100;
 
     glm::vec3 a;
     PAD(1);
@@ -84,7 +64,7 @@ struct LAYOUT_STD140 BoundingBox {
 };
 
 struct LAYOUT_STD140 BVH_FlattenNode {
-    static constexpr size_t MAX_BVH_NODES = 500;
+    static constexpr size_t MAX_BVH_NODES = 100;
 
     BoundingBox bbox;
 
@@ -99,4 +79,13 @@ struct LAYOUT_STD140 BVH_Scene {
     std::vector<BVH_FlattenNode> nodes;
     std::vector<Triangle> triangles;
 };
+
+struct LAYOUT_STD140 Sphere {
+    static constexpr size_t MAX_SPHERES = 100;
+
+    glm::vec3 pos;
+    float rad;
+    Material mat;
+};
+
 

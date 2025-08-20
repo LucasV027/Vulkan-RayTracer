@@ -111,7 +111,7 @@ bool UI::DrawMesh(Mesh& mesh) {
         ImGui::Indent();
 
         ImGui::Text("Start : %u", mesh.start);
-        ImGui::Text("Count : %u", mesh.count);
+        // ImGui::Text("Count : %u", mesh.count);
 
         ImGui::Unindent();
     }
@@ -119,7 +119,7 @@ bool UI::DrawMesh(Mesh& mesh) {
     ImGui::SeparatorText("Transform");
     {
         ImGui::Indent();
-        changed |= DrawTransform(mesh.transform);
+        // changed |= DrawTransform(mesh.transform);
         ImGui::Unindent();
     }
 
@@ -131,47 +131,19 @@ bool UI::DrawMesh(Mesh& mesh) {
 }
 
 bool UI::DrawScene(Scene& scene) {
-    bool changed = false;
-
-    auto& sceneData = scene.GetData();
     static std::string filename;
+
+    bool changed = false;
 
     if (ImGui::TreeNode("Scene")) {
         {
-            changed |= DrawCollectionHeader("Meshes", sceneData.meshCount,
-                                            [&scene] { return scene.MeshFull(); },  // Collection full callback
-                                            [] { ImGui::OpenPopup("LoadPopup"); }); // Add item callback
-
-            InputFilenamePopup("LoadPopup",
-                               "Load",
-                               filename,
-                               ".obj",
-                               [&](const std::filesystem::path& filepath) {
-                                   scene.AddMesh(filepath);
-                                   changed = true;
-                               });
-
-            ImGui::Separator();
-
-            ImGui::Indent();
-            changed |= DrawCollection("Mesh", sceneData.meshes, sceneData.meshCount, DrawMesh,
-                                      [&scene](const uint32_t idx) { scene.RemoveMesh(idx); });
-            ImGui::Unindent();
-        }
-
-        ImGui::NewLine();
-
-        {
-            changed |= DrawCollectionHeader("Sphere", sceneData.meshCount,
-                                            [&scene] { return scene.SphereFull(); }, // Collection full callback
-                                            [&scene] { scene.AddSphere(); });        // Add item callback
-
-            ImGui::Separator();
-
-            ImGui::Indent();
-            changed |= DrawCollection("Sphere", scene.GetSpheres(), DrawSphere,
-                                      [&scene](const uint32_t i) { scene.RemoveSphere(i); });
-            ImGui::Unindent();
+            changed |= DrawCollection("Sphere",
+                                      scene.GetSpheres(),
+                                      [&scene] { return scene.SphereFull(); },              // Collection full callback
+                                      [&scene] { scene.AddSphere(); },                      // Add item callback
+                                      DrawSphere,                                           // Draw UI callback
+                                      [&scene](const uint32_t i) { scene.RemoveSphere(i); } // Remove callback
+            );
         }
         ImGui::TreePop();
     }

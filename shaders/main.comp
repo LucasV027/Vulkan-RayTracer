@@ -3,13 +3,11 @@
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 /////////// Constants ///////////
-#define MAX_SPHERES 20
-#define MAX_VERTICES 1000
-#define MAX_FACES 1000
-#define MAX_MESHES 5
-#define MAX_TRIANGLES 2000
-#define MAX_BVH_NODE 500
-
+#define MAX_SPHERES 100
+#define MAX_MESHES 10
+#define MAX_TRIANGLES 100
+#define MAX_BVH_NODE 100
+#define BVH_STACK_SIZE 32
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
@@ -43,6 +41,11 @@ struct BoundingBox {
     vec3 min, max;
 };
 
+struct Mesh {
+    uint start;
+    Material mat;
+};
+
 struct BVH_Node {
     BoundingBox bbox;
 
@@ -51,26 +54,6 @@ struct BVH_Node {
 
     uint start;
     uint count;
-};
-
-struct Mesh {
-    uint start;
-    uint count;
-    vec3 minBoundingBox;
-    vec3 maxBoundingBox;
-    Material material;
-    mat4 transform;
-};
-
-struct Scene {
-    vec3 vertices[MAX_VERTICES];
-    uvec3 faces[MAX_FACES];
-    Mesh meshes[MAX_MESHES];
-
-    uint sphereCount;
-    uint verticesCount;
-    uint meshCount;
-    uint facesCount;
 };
 
 struct HitInfo {
@@ -86,7 +69,9 @@ layout (push_constant) uniform PushData {
     uint frameIndex;
 };
 
-layout (std140, set = 0, binding = 0) uniform CameraBuffer {
+layout (set = 0, binding = 0, rgba32f) uniform image2D resultImage;
+
+layout (std140, set = 0, binding = 1) uniform CameraData {
     vec3 cameraPosition;
     vec3 cameraForward;
     vec3 cameraRight;
@@ -94,24 +79,27 @@ layout (std140, set = 0, binding = 0) uniform CameraBuffer {
     float fov;
 };
 
-layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;
-
-layout (std140, set = 0, binding = 2) uniform SceneBuffer {
-    Scene scene;
+layout (std140, set = 0, binding = 2) uniform SceneData {
+    uint numTriangles;
+    uint numSpheres;
+    uint numMeshes;
 };
 
-layout (std140, set = 0, binding = 3) buffer TrianglesBuffer {
+layout (std140, set = 0, binding = 3) uniform Meshes {
+    Mesh meshes[MAX_MESHES];
+};
+
+layout (std140, set = 0, binding = 4) uniform Triangles {
     Triangle triangles[MAX_TRIANGLES];
 };
 
-layout (std140, set = 0, binding = 4) uniform BVH_Buffer {
+layout (std140, set = 0, binding = 5) uniform BVH_Nodes {
     BVH_Node nodes[MAX_BVH_NODE];
 };
 
-layout (std140, set = 0, binding = 5) uniform SpheresBuffer {
+layout (std140, set = 0, binding = 6) uniform Spheres {
     Sphere spheres[MAX_SPHERES];
 };
-
 
 /////////// Helpers ///////////
 uint WangHash(uint seed) {
@@ -173,34 +161,6 @@ HitInfo RaySphereIntersection(Ray ray, const Sphere sphere) {
     return hitInfo;
 }
 
-// Möller–Trumbore intersection algorithm
-HitInfo RayTriangleIntersection(Ray ray, const uvec3 face, const mat4 transform) {
-    vec3 a = (transform * vec4(scene.vertices[face.x], 1.0)).xyz;
-    vec3 b = (transform * vec4(scene.vertices[face.y], 1.0)).xyz;
-    vec3 c = (transform * vec4(scene.vertices[face.z], 1.0)).xyz;
-
-    vec3 ab = b - a;
-    vec3 ac = c - a;
-    vec3 normal = cross(ab, ac);
-    vec3 ao = ray.ori - a;
-    vec3 dao = cross(ao, ray.dir);
-
-    float determinant = -dot(ray.dir, normal);
-    float invDet = 1 / determinant;
-
-    float dst = dot(ao, normal) * invDet;
-    float u = dot(ac, dao) * invDet;
-    float v = -dot(ab, dao) * invDet;
-    float w = 1 - u - v;
-
-    HitInfo hitInfo;
-    hitInfo.didCollide = determinant >= 1E-6 && dst >= 0 && u >= 0 && v >= 0 && w >= 0;
-    hitInfo.hitPoint = ray.ori + ray.dir * dst;
-    hitInfo.normal = normalize(normal);
-    hitInfo.dst = dst;
-    return hitInfo;
-}
-
 HitInfo RayTriangleIntersection(Ray ray, const Triangle triangle) {
     vec3 ab = triangle.b - triangle.a;
     vec3 ac = triangle.c - triangle.a;
@@ -236,29 +196,29 @@ bool RayBoundingBoxIntersection(Ray ray, const vec3 boxMin, const vec3 boxMax) {
     return tNear <= tFar;
 }
 
-HitInfo RayBVHIntersection(Ray ray, Material mat) {
+HitInfo RayBVHIntersection(Ray ray, Material mat, uint startIndex) {
     HitInfo closest;
     closest.didCollide = false;
     closest.dst = FLT_MAX;
     closest.mat = mat;
 
-    uint stack[32];
-    uint currentIndex = 0;
-    stack[currentIndex++] = 0;
+    uint stack[BVH_STACK_SIZE];
+    uint stackTopIndex = 0;
+    stack[stackTopIndex++] = startIndex;
 
-    while (currentIndex != 0) {
-        BVH_Node top = nodes[stack[--currentIndex]];
+    while (stackTopIndex != 0) {
+        BVH_Node currentNode = nodes[stack[--stackTopIndex]];
 
-        if (top.left == 0 && top.right == 0) {
-            for (uint t = top.start; t < top.start + top.count; t++) {
+        if (currentNode.left == 0 && currentNode.right == 0) {
+            for (uint t = currentNode.start; t < currentNode.start + currentNode.count; t++) {
                 HitInfo current = RayTriangleIntersection(ray, triangles[t]);
                 if (current.didCollide && current.dst < closest.dst) {
                     closest = current;
                 }
             }
-        } else if (RayBoundingBoxIntersection(ray, top.bbox.min, top.bbox.max)) {
-            stack[currentIndex++] = top.left;
-            stack[currentIndex++] = top.right;
+        } else if (RayBoundingBoxIntersection(ray, currentNode.bbox.min, currentNode.bbox.max)) {
+            stack[stackTopIndex++] = currentNode.left;
+            stack[stackTopIndex++] = currentNode.right;
         }
     }
     return closest;
@@ -285,34 +245,15 @@ HitInfo ClosestHit(Ray ray) {
     closest.dst = FLT_MAX;
 
     // Spheres
-    for (int j = 0; j < scene.sphereCount; j++) {
+    for (int j = 0; j < numSpheres; j++) {
         HitInfo current = RaySphereIntersection(ray, spheres[j]);
         if (current.didCollide && current.dst < closest.dst) closest = current;
     }
 
-    // Normal Meshes
-    for (int i = 0; i < scene.meshCount; i++) {
-        const Mesh m = scene.meshes[i];
-
-        vec3 minBox = (m.transform * vec4(m.minBoundingBox, 1.0)).xyz;
-        vec3 maxBox = (m.transform * vec4(m.maxBoundingBox, 1.0)).xyz;
-
-        if (!RayBoundingBoxIntersection(ray, minBox, maxBox)) continue;
-
-        for (uint t = m.start; t < m.start + m.count; t++) {
-            HitInfo current = RayTriangleIntersection(ray, scene.faces[t], m.transform);
-            if (current.didCollide && current.dst < closest.dst) {
-                closest = current;
-                closest.mat = m.material;
-                break;
-            }
-        }
-    }
-
     // Single BVH Mesh
-    if (scene.meshCount >= 1) {
-        const Mesh m = scene.meshes[0];
-        HitInfo current = RayBVHIntersection(ray, m.material);
+    for (int i = 0; i < numMeshes; i++) {
+        const Mesh m = meshes[i];
+        HitInfo current = RayBVHIntersection(ray, m.mat, m.start);
         if (current.didCollide && current.dst < closest.dst) closest = current;
     }
 
