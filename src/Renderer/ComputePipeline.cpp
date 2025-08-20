@@ -35,16 +35,14 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
     if (raytracer.IsDirty(DirtyFlags::Scene)) {
         auto data = raytracer.GetScene().GetData();
         data.sphereCount = raytracer.GetScene().GetSpheres().size();
-        stagingBuffer->Update(data);
+        sceneBuffer->Update(data);
         raytracer.ClearDirty(DirtyFlags::Scene);
-        uploadStaging = true;
     }
 
     if (raytracer.IsDirty(DirtyFlags::BVH)) {
         if (!raytracer.GetScene().GetBVH().triangles.empty()) {
-            stagingBuffer2->Update(raytracer.GetScene().GetBVH().triangles);
+            trianglesBuffer->Update(raytracer.GetScene().GetBVH().triangles);
             bvhNodesBuffer->Update(raytracer.GetScene().GetBVH().nodes);
-            uploadStaging2 = true;
         }
         raytracer.ClearDirty(DirtyFlags::BVH);
     }
@@ -60,60 +58,14 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
 void ComputePipeline::Dispatch(const vk::CommandBuffer commandBuffer) const {
     TransitionForCompute(commandBuffer);
 
-    if (uploadStaging) {
-        constexpr vk::BufferCopy copyRegion{
-            .size = sizeof(SceneData)
-        };
-
-        commandBuffer.copyBuffer(stagingBuffer->GetHandle(), sceneBuffer->GetHandle(), copyRegion);
-
-        const vk::BufferMemoryBarrier2 barrier{
-            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-            .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-            .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-            .buffer = sceneBuffer->GetHandle(),
-            .offset = 0,
-            .size = sizeof(SceneData)
-        };
-
-        const vk::DependencyInfo depInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &barrier
-        };
-        commandBuffer.pipelineBarrier2(depInfo);
-
-        uploadStaging = false;
+    if (sceneBuffer->ShouldUpload()) {
+        sceneBuffer->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader,
+                            vk::AccessFlagBits2::eShaderRead);
     }
 
-    if (uploadStaging2) {
-        constexpr vk::BufferCopy copyRegion{
-            .size = sizeof(Triangle) * Triangle::MAX_TRIANGLES,
-        };
-
-        commandBuffer.copyBuffer(stagingBuffer2->GetHandle(), trianglesBuffer->GetHandle(), copyRegion);
-
-        const vk::BufferMemoryBarrier2 barrier{
-            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-            .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-            .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-            .buffer = trianglesBuffer->GetHandle(),
-            .offset = 0,
-            .size = sizeof(Triangle) * Triangle::MAX_TRIANGLES,
-        };
-
-        const vk::DependencyInfo depInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &barrier
-        };
-        commandBuffer.pipelineBarrier2(depInfo);
-
-        uploadStaging2 = false;
+    if (trianglesBuffer->ShouldUpload()) {
+        trianglesBuffer->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader,
+                                vk::AccessFlagBits2::eShaderRead);
     }
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
@@ -195,43 +147,32 @@ void ComputePipeline::CreateResources() {
 
     outputImageView = outputImage->CreateView();
 
-    cameraBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(CameraData), vk::BufferUsageFlagBits::eUniformBuffer);
+    constexpr auto uniformBufferFlag = vk::BufferUsageFlagBits::eUniformBuffer;
+    constexpr auto storageBufferFlag = vk::BufferUsageFlagBits::eStorageBuffer;
 
-    trianglesBuffer = std::make_unique<Buffer>(vulkanContext,
-                                               sizeof(Triangle) * Triangle::MAX_TRIANGLES,
-                                               vk::BufferUsageFlagBits::eTransferDst |
-                                               vk::BufferUsageFlagBits::eStorageBuffer,
-                                               vk::MemoryPropertyFlagBits::eDeviceLocal);
+    // This function is called every time the window is resized.
+    // Only size-dependent resources (e.g. outputImage) need to be recreated on each call.
+    // Other resources (camera, scene, etc.) only need to be created once.
+    // If they already exist, we can return early.
+    if (cameraBuffer) return;
 
-    bvhNodesBuffer = std::make_unique<Buffer>(vulkanContext,
-                                              sizeof(BVH_FlattenNode) * BVH_FlattenNode::MAX_BVH_NODES,
-                                              vk::BufferUsageFlagBits::eUniformBuffer);
+    // ---- Camera uniform buffer ---- //
+    cameraBuffer = std::make_unique<Buffer>(vulkanContext, sizeof(CameraData), uniformBufferFlag);
 
+    // ---- Triangles storage buffer (device local) ---- //
+    constexpr vk::DeviceSize trianglesBufferSize = sizeof(Triangle) * Triangle::MAX_TRIANGLES;
+    trianglesBuffer = std::make_unique<BufferWithStaging>(vulkanContext, trianglesBufferSize, storageBufferFlag);
 
-    sceneBuffer = std::make_unique<Buffer>(vulkanContext,
-                                           sizeof(SceneData),
-                                           vk::BufferUsageFlagBits::eTransferDst |
-                                           vk::BufferUsageFlagBits::eUniformBuffer,
-                                           vk::MemoryPropertyFlagBits::eDeviceLocal);
+    // ---- BVH Nodes uniform buffer ---- //
+    constexpr vk::DeviceSize bvhNodesBufferSize = sizeof(BVH_FlattenNode) * BVH_FlattenNode::MAX_BVH_NODES;
+    bvhNodesBuffer = std::make_unique<Buffer>(vulkanContext, bvhNodesBufferSize, uniformBufferFlag);
 
-    stagingBuffer = std::make_unique<Buffer>(vulkanContext,
-                                             sizeof(SceneData),
-                                             vk::BufferUsageFlagBits::eTransferSrc,
-                                             vk::MemoryPropertyFlagBits::eHostVisible |
-                                             vk::MemoryPropertyFlagBits::eHostCoherent
-    );
+    // ---- Scene buffer (device local) ---- //
+    sceneBuffer = std::make_unique<BufferWithStaging>(vulkanContext, sizeof(SceneData), uniformBufferFlag);
 
-    stagingBuffer2 = std::make_unique<Buffer>(vulkanContext,
-                                              sizeof(Triangle) * Triangle::MAX_TRIANGLES,
-                                              vk::BufferUsageFlagBits::eTransferSrc,
-                                              vk::MemoryPropertyFlagBits::eHostVisible |
-                                              vk::MemoryPropertyFlagBits::eHostCoherent
-    );
-
-    spheresBuffer = std::make_unique<Buffer>(vulkanContext,
-                                             sizeof(Sphere) * Sphere::MAX_SPHERES,
-                                             vk::BufferUsageFlagBits::eUniformBuffer
-    );
+    // ---- Spheres buffer ---- //
+    constexpr vk::DeviceSize spheresBufferSize = sizeof(Sphere) * Sphere::MAX_SPHERES;
+    spheresBuffer = std::make_unique<Buffer>(vulkanContext, spheresBufferSize, uniformBufferFlag);
 }
 
 void ComputePipeline::ComputeGroupCount() {

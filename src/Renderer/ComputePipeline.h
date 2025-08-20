@@ -47,22 +47,15 @@ private:
     uint32_t groupCountZ = 1;
 
     // Resources
-    std::unique_ptr<Buffer> cameraBuffer;    // Binding 0
-    std::unique_ptr<Image> outputImage;      // Binding 1
-    std::unique_ptr<Buffer> sceneBuffer;     // Binding 2
-    std::unique_ptr<Buffer> trianglesBuffer; // Binding 3
-    std::unique_ptr<Buffer> bvhNodesBuffer;  // Binding 4
-    std::unique_ptr<Buffer> spheresBuffer; // Binding 5
+    std::unique_ptr<Buffer> cameraBuffer;               // Binding 0
+    std::unique_ptr<Image> outputImage;                 // Binding 1
+    std::unique_ptr<BufferWithStaging> sceneBuffer;     // Binding 2
+    std::unique_ptr<BufferWithStaging> trianglesBuffer; // Binding 3
+    std::unique_ptr<Buffer> bvhNodesBuffer;             // Binding 4
+    std::unique_ptr<Buffer> spheresBuffer;              // Binding 5
 
     PushData pushData = {0};
 
-    mutable bool uploadStaging2 = false;
-    std::unique_ptr<Buffer> stagingBuffer2;
-
-    mutable bool uploadStaging = false;
-    std::unique_ptr<Buffer> stagingBuffer;
-
     vk::UniqueImageView outputImageView;
-
     vk::UniqueDescriptorSet descriptorSet;
 };

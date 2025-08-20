@@ -65,3 +65,59 @@ void Buffer::Update(const void* data, const vk::DeviceSize size) const {
         LOGE("Failed to map memory! Error: {}", vk::to_string(result));
     }
 }
+
+BufferWithStaging::BufferWithStaging(const std::shared_ptr<VulkanContext>& context,
+                  const vk::DeviceSize size,
+                  const vk::BufferUsageFlags usage) {
+    // Buffer device-local (GPU)
+    buffer = std::make_unique<Buffer>(
+        context,
+        size,
+        usage | vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal
+    );
+
+    // Buffer staging (CPU visible)
+    stagingBuffer = std::make_unique<Buffer>(
+        context,
+        size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+    );
+
+    needsUpload = false;
+}
+
+void BufferWithStaging::Upload(const vk::CommandBuffer commandBuffer,
+                               const vk::PipelineStageFlags2 dstStageMask,
+                               const vk::AccessFlags2 dstAccessMask) const {
+    if (!needsUpload || stagedSize == 0) {
+        return;
+    }
+
+    const vk::BufferCopy copyRegion{
+        .size = stagedSize,
+    };
+
+    commandBuffer.copyBuffer(stagingBuffer->GetHandle(), buffer->GetHandle(), copyRegion);
+
+    const vk::BufferMemoryBarrier2 barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .buffer = buffer->GetHandle(),
+        .offset = 0,
+        .size = stagedSize,
+    };
+
+    const vk::DependencyInfo depInfo{
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &barrier
+    };
+    commandBuffer.pipelineBarrier2(depInfo);
+
+    needsUpload = false;
+}

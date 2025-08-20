@@ -64,3 +64,37 @@ private:
     vk::DeviceSize bufferSize;
     vk::DeviceMemory memory;
 };
+
+class BufferWithStaging {
+public:
+    BufferWithStaging(const std::shared_ptr<VulkanContext>& context, vk::DeviceSize size, vk::BufferUsageFlags usage);
+
+    void Upload(vk::CommandBuffer commandBuffer,
+                vk::PipelineStageFlags2 dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                vk::AccessFlags2 dstAccessMask = vk::AccessFlagBits2::eShaderRead) const;
+
+    template <typename T>
+    void Update(const std::vector<T>& data) const {
+        stagingBuffer->Update(data);
+        stagedSize = sizeof(T) * data.size();
+        needsUpload = true;
+    }
+
+    template <typename T>
+    void Update(const T& data) const {
+        stagingBuffer->Update(data);
+        stagedSize = sizeof(T);
+        needsUpload = true;
+    }
+
+    bool ShouldUpload() const { return needsUpload; }
+    vk::Buffer GetHandle() const { return buffer->GetHandle(); }
+    vk::DeviceSize GetSize() const { return buffer->GetSize(); }
+
+private:
+    std::unique_ptr<Buffer> buffer;
+    std::unique_ptr<Buffer> stagingBuffer;
+
+    mutable vk::DeviceSize stagedSize = 0;
+    mutable bool needsUpload = false;
+};
