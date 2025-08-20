@@ -63,8 +63,6 @@ struct Mesh {
 };
 
 struct Scene {
-    Sphere spheres[MAX_SPHERES];
-
     vec3 vertices[MAX_VERTICES];
     uvec3 faces[MAX_FACES];
     Mesh meshes[MAX_MESHES];
@@ -108,6 +106,10 @@ layout (std140, set = 0, binding = 3) buffer TrianglesBuffer {
 
 layout (std140, set = 0, binding = 4) uniform BVH_Buffer {
     BVH_Node nodes[MAX_BVH_NODE];
+};
+
+layout (std140, set = 0, binding = 5) uniform SpheresBuffer {
+    Sphere spheres[MAX_SPHERES];
 };
 
 
@@ -284,7 +286,7 @@ HitInfo ClosestHit(Ray ray) {
 
     // Spheres
     for (int j = 0; j < scene.sphereCount; j++) {
-        HitInfo current = RaySphereIntersection(ray, scene.spheres[j]);
+        HitInfo current = RaySphereIntersection(ray, spheres[j]);
         if (current.didCollide && current.dst < closest.dst) closest = current;
     }
 

@@ -33,7 +33,9 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
     }
 
     if (raytracer.IsDirty(DirtyFlags::Scene)) {
-        stagingBuffer->Update(raytracer.GetScene().GetData());
+        auto data = raytracer.GetScene().GetData();
+        data.sphereCount = raytracer.GetScene().GetSpheres().size();
+        stagingBuffer->Update(data);
         raytracer.ClearDirty(DirtyFlags::Scene);
         uploadStaging = true;
     }
@@ -45,6 +47,11 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
             uploadStaging2 = true;
         }
         raytracer.ClearDirty(DirtyFlags::BVH);
+    }
+
+    if (raytracer.IsDirty(DirtyFlags::Spheres)) {
+        spheresBuffer->Update(raytracer.GetScene().GetSpheres());
+        raytracer.ClearDirty(DirtyFlags::Spheres);
     }
 
     pushData.frameIndex++;
@@ -125,6 +132,7 @@ void ComputePipeline::CreateDescriptorSetLayout() {
                  .AddBinding(2, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(3, vk::DescriptorType::eStorageBuffer, stage)
                  .AddBinding(4, vk::DescriptorType::eUniformBuffer, stage)
+                 .AddBinding(5, vk::DescriptorType::eUniformBuffer, stage)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
 }
 
@@ -137,6 +145,7 @@ void ComputePipeline::CreateDescriptorSet() {
           .WriteBuffer(2, sceneBuffer->GetHandle(), sceneBuffer->GetSize())
           .WriteBuffer(3, trianglesBuffer->GetHandle(), trianglesBuffer->GetSize(), vk::DescriptorType::eStorageBuffer)
           .WriteBuffer(4, bvhNodesBuffer->GetHandle(), bvhNodesBuffer->GetSize())
+          .WriteBuffer(5, spheresBuffer->GetHandle(), spheresBuffer->GetSize())
           .Update(vulkanContext->device, descriptorSet.get());
 }
 
@@ -217,6 +226,11 @@ void ComputePipeline::CreateResources() {
                                               vk::BufferUsageFlagBits::eTransferSrc,
                                               vk::MemoryPropertyFlagBits::eHostVisible |
                                               vk::MemoryPropertyFlagBits::eHostCoherent
+    );
+
+    spheresBuffer = std::make_unique<Buffer>(vulkanContext,
+                                             sizeof(Sphere) * Sphere::MAX_SPHERES,
+                                             vk::BufferUsageFlagBits::eUniformBuffer
     );
 }
 

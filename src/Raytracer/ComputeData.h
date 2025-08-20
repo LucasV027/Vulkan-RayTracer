@@ -31,6 +31,8 @@ struct LAYOUT_STD140 Material {
 };
 
 struct LAYOUT_STD140 Sphere {
+    static constexpr size_t MAX_SPHERES = 20;
+
     glm::vec3 pos;
     float rad;
     Material mat;
@@ -49,12 +51,9 @@ struct LAYOUT_STD140 Mesh {
 };
 
 struct LAYOUT_STD140 SceneData {
-    static constexpr size_t MAX_SPHERES = 20;
     static constexpr size_t MAX_VERTICES = 1000;
     static constexpr size_t MAX_FACES = 1000;
     static constexpr size_t MAX_MESHES = 5;
-
-    Sphere spheres[MAX_SPHERES];
 
     glm::vec4 vertices[MAX_VERTICES];
     glm::uvec4 faces[MAX_FACES];

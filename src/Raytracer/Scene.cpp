@@ -6,12 +6,13 @@
 #include "Core/Math.h"
 
 Scene::Scene() {
-    sceneData.sphereCount = 3u;
+    spheres.reserve(Sphere::MAX_SPHERES);
+
     sceneData.verticesCount = 0u;
     sceneData.meshCount = 0u;
     sceneData.facesCount = 0u;
 
-    sceneData.spheres[0] = {
+    spheres.emplace_back(Sphere{
         .pos = {0.0f, 0.0f, -5.0f},
         .rad = 1.0f,
         .mat = {
@@ -20,9 +21,9 @@ Scene::Scene() {
             .emissionColor = {0.0f, 0.0f, 0.0f},
             .emissionStrength = 0.0f,
         }
-    };
+    });
 
-    sceneData.spheres[1] = {
+    spheres.emplace_back(Sphere{
         .pos = {9.0f, -40.0f, -8.0f},
         .rad = 30.0f,
         .mat = {
@@ -31,9 +32,9 @@ Scene::Scene() {
             .emissionColor = {1.0f, 1.0f, 0.7f},
             .emissionStrength = 5.0f,
         }
-    };
+    });
 
-    sceneData.spheres[2] = {
+    spheres.emplace_back(Sphere{
         .pos = {0.0f, 52.0f, -6.0f},
         .rad = 50.0f,
         .mat = {
@@ -42,13 +43,13 @@ Scene::Scene() {
             .emissionColor = {0.0f, 0.0f, 0.0f},
             .emissionStrength = 0.0f,
         }
-    };
+    });
 }
 
 void Scene::AddSphere() {
     if (SphereFull()) return;
 
-    sceneData.spheres[sceneData.sphereCount] = {
+    spheres.emplace_back(Sphere{
         .pos = glm::vec3(0.0f, 0.0f, -5.0f) + Math::RandomVec3() * 3.f,
         .rad = 1.0f,
         .mat = {
@@ -57,19 +58,12 @@ void Scene::AddSphere() {
             .emissionColor = Math::RandomVec3(),
             .emissionStrength = 0.0f,
         }
-    };
-
-    sceneData.sphereCount++;
+    });
 }
 
 void Scene::RemoveSphere(const uint32_t idx) {
-    if (idx >= sceneData.sphereCount) return;
-
-    for (uint32_t i = idx; i < sceneData.sphereCount - 1; i++) {
-        sceneData.spheres[i] = sceneData.spheres[i + 1];
-    }
-
-    sceneData.sphereCount--;
+    if (idx >= spheres.size()) return;
+    spheres.erase(spheres.begin() + idx);
 }
 
 void Scene::AddMesh(const std::filesystem::path& path) {

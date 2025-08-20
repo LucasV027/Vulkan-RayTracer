@@ -139,7 +139,7 @@ bool UI::DrawScene(Scene& scene) {
     if (ImGui::TreeNode("Scene")) {
         {
             changed |= DrawCollectionHeader("Meshes", sceneData.meshCount,
-                                            [&scene] { return scene.MeshFull(); },   // Collection full callback
+                                            [&scene] { return scene.MeshFull(); },  // Collection full callback
                                             [] { ImGui::OpenPopup("LoadPopup"); }); // Add item callback
 
             InputFilenamePopup("LoadPopup",
@@ -164,12 +164,12 @@ bool UI::DrawScene(Scene& scene) {
         {
             changed |= DrawCollectionHeader("Sphere", sceneData.meshCount,
                                             [&scene] { return scene.SphereFull(); }, // Collection full callback
-                                            [&scene] { scene.AddSphere(); });       // Add item callback
+                                            [&scene] { scene.AddSphere(); });        // Add item callback
 
             ImGui::Separator();
 
             ImGui::Indent();
-            changed |= DrawCollection("Sphere", sceneData.spheres, sceneData.sphereCount, DrawSphere,
+            changed |= DrawCollection("Sphere", scene.GetSpheres(), DrawSphere,
                                       [&scene](const uint32_t i) { scene.RemoveSphere(i); });
             ImGui::Unindent();
         }

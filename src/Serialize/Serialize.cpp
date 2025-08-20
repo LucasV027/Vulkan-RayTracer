@@ -132,13 +132,11 @@ void from_json(const Json& j, Mesh& mesh) {
 
 // ---- SceneData ----
 void to_json(Json& j, const SceneData& sceneData) {
-    std::vector<Sphere> activeSpheres(sceneData.spheres, sceneData.spheres + sceneData.sphereCount);
     std::vector<glm::vec4> activeVertices(sceneData.vertices, sceneData.vertices + sceneData.verticesCount);;
     std::vector<glm::uvec4> activeFaces(sceneData.faces, sceneData.faces + sceneData.facesCount);;
     std::vector<Mesh> activeMeshes(sceneData.meshes, sceneData.meshes + sceneData.meshCount);
 
     j = Json{
-        {"spheres", activeSpheres},
         {"vertices", activeVertices},
         {"faces", activeFaces},
         {"meshes", activeMeshes},
@@ -146,22 +144,18 @@ void to_json(Json& j, const SceneData& sceneData) {
 }
 
 void from_json(const Json& j, SceneData& sceneData) {
-    std::vector<Sphere> spheres;
     std::vector<glm::vec4> vertices;
     std::vector<glm::uvec4> faces;
     std::vector<Mesh> meshes;
 
-    j.at("spheres").get_to(spheres);
     j.at("vertices").get_to(vertices);
     j.at("faces").get_to(faces);
     j.at("meshes").get_to(meshes);
 
-    sceneData.sphereCount = std::min<uint32_t>(static_cast<uint32_t>(spheres.size()), SceneData::MAX_SPHERES);
     sceneData.verticesCount = std::min<uint32_t>(static_cast<uint32_t>(vertices.size()), SceneData::MAX_VERTICES);
     sceneData.facesCount = std::min<uint32_t>(static_cast<uint32_t>(faces.size()), SceneData::MAX_FACES);
     sceneData.meshCount = std::min<uint32_t>(static_cast<uint32_t>(meshes.size()), SceneData::MAX_MESHES);
 
-    std::copy_n(spheres.begin(), sceneData.sphereCount, sceneData.spheres);
     std::copy_n(vertices.begin(), sceneData.verticesCount, sceneData.vertices);
     std::copy_n(faces.begin(), sceneData.facesCount, sceneData.faces);
     std::copy_n(meshes.begin(), sceneData.meshCount, sceneData.meshes);
@@ -169,11 +163,15 @@ void from_json(const Json& j, SceneData& sceneData) {
 
 // ---- Scene ----
 void to_json(Json& j, const Scene& scene) {
-    j = Json{{"sceneData", scene.sceneData}};
+    j = Json{
+        {"sceneData", scene.sceneData},
+        {"spheres", scene.spheres},
+    };
 }
 
 void from_json(const Json& j, Scene& scene) {
     j.at("sceneData").get_to(scene.sceneData);
+    j.at("spheres").get_to(scene.spheres);
 }
 
 // ---- Camera ----

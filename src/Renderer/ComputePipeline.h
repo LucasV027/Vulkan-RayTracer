@@ -52,6 +52,7 @@ private:
     std::unique_ptr<Buffer> sceneBuffer;     // Binding 2
     std::unique_ptr<Buffer> trianglesBuffer; // Binding 3
     std::unique_ptr<Buffer> bvhNodesBuffer;  // Binding 4
+    std::unique_ptr<Buffer> spheresBuffer; // Binding 5
 
     PushData pushData = {0};
 

@@ -10,9 +10,10 @@ enum class DirtyFlags {
     Scene = 1,
     Size = 2,
     BVH = 3,
+    Spheres = 4,
 };
 
-class Raytracer : public DirtySystem<DirtyFlags, 4> {
+class Raytracer : public DirtySystem<DirtyFlags, 5> {
 public:
     Serializable(Raytracer);
 

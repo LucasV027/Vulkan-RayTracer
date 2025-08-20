@@ -41,6 +41,33 @@ namespace UI {
         return changed;
     }
 
+    template <typename T, typename DrawFunc, typename RemoveFunc>
+    bool DrawCollection(const char* label, std::vector<T>& items, DrawFunc drawFunc, RemoveFunc removeFunc) {
+        bool changed = false;
+
+        for (uint32_t i = 0; i < items.size();) {
+            bool remove = false;
+            ImGui::PushID(i);
+            if (ImGui::SmallButton(std::format("x##{}", label).c_str())) remove = true;
+            ImGui::SameLine();
+            ImGui::PopID();
+
+            if (ImGui::TreeNode(std::format("{}[{}]", label, i).c_str())) {
+                changed |= drawFunc(items[i]);
+                ImGui::TreePop();
+            }
+
+            if (remove) {
+                removeFunc(i);
+                changed = true;
+            } else {
+                i++;
+            }
+        }
+
+        return changed;
+    }
+
     template <typename FullFunc, typename AddFunc>
     bool DrawCollectionHeader(const char* label, const size_t count, FullFunc fullFunc, AddFunc addFunc) {
         bool changed = false;
