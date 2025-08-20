@@ -7,6 +7,9 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 #define MAX_VERTICES 1000
 #define MAX_FACES 1000
 #define MAX_MESHES 5
+#define MAX_TRIANGLES 2000
+#define MAX_BVH_NODE 500
+
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
 #define FLT_MIN 1.175494351e-38
@@ -30,6 +33,24 @@ struct Sphere {
     vec3 pos;
     float rad;
     Material mat;
+};
+
+struct Triangle {
+    vec3 a, b, c;
+};
+
+struct BoundingBox {
+    vec3 min, max;
+};
+
+struct BVH_Node {
+    BoundingBox bbox;
+
+    uint left;
+    uint right;
+
+    uint start;
+    uint count;
 };
 
 struct Mesh {
@@ -80,6 +101,15 @@ layout (set = 0, binding = 1, rgba32f) uniform image2D resultImage;
 layout (std140, set = 0, binding = 2) uniform SceneBuffer {
     Scene scene;
 };
+
+layout (std140, set = 0, binding = 3) buffer TrianglesBuffer {
+    Triangle triangles[MAX_TRIANGLES];
+};
+
+layout (std140, set = 0, binding = 4) uniform BVH_Buffer {
+    BVH_Node nodes[MAX_BVH_NODE];
+};
+
 
 /////////// Helpers ///////////
 uint WangHash(uint seed) {
@@ -169,6 +199,29 @@ HitInfo RayTriangleIntersection(Ray ray, const uvec3 face, const mat4 transform)
     return hitInfo;
 }
 
+HitInfo RayTriangleIntersection(Ray ray, const Triangle triangle) {
+    vec3 ab = triangle.b - triangle.a;
+    vec3 ac = triangle.c - triangle.a;
+    vec3 normal = cross(ab, ac);
+    vec3 ao = ray.ori - triangle.a;
+    vec3 dao = cross(ao, ray.dir);
+
+    float determinant = -dot(ray.dir, normal);
+    float invDet = 1 / determinant;
+
+    float dst = dot(ao, normal) * invDet;
+    float u = dot(ac, dao) * invDet;
+    float v = -dot(ab, dao) * invDet;
+    float w = 1 - u - v;
+
+    HitInfo hitInfo;
+    hitInfo.didCollide = determinant >= 1E-6 && dst >= 0 && u >= 0 && v >= 0 && w >= 0;
+    hitInfo.hitPoint = ray.ori + ray.dir * dst;
+    hitInfo.normal = normalize(normal);
+    hitInfo.dst = dst;
+    return hitInfo;
+}
+
 // https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
 bool RayBoundingBoxIntersection(Ray ray, const vec3 boxMin, const vec3 boxMax) {
     vec3 tMin = (boxMin - ray.ori) / ray.dir;
@@ -181,6 +234,33 @@ bool RayBoundingBoxIntersection(Ray ray, const vec3 boxMin, const vec3 boxMax) {
     return tNear <= tFar;
 }
 
+HitInfo RayBVHIntersection(Ray ray, Material mat) {
+    HitInfo closest;
+    closest.didCollide = false;
+    closest.dst = FLT_MAX;
+    closest.mat = mat;
+
+    uint stack[32];
+    uint currentIndex = 0;
+    stack[currentIndex++] = 0;
+
+    while (currentIndex != 0) {
+        BVH_Node top = nodes[stack[--currentIndex]];
+
+        if (top.left == 0 && top.right == 0) {
+            for (uint t = top.start; t < top.start + top.count; t++) {
+                HitInfo current = RayTriangleIntersection(ray, triangles[t]);
+                if (current.didCollide && current.dst < closest.dst) {
+                    closest = current;
+                }
+            }
+        } else if (RayBoundingBoxIntersection(ray, top.bbox.min, top.bbox.max)) {
+            stack[currentIndex++] = top.left;
+            stack[currentIndex++] = top.right;
+        }
+    }
+    return closest;
+};
 
 Ray GenerateRay(ivec2 pixelCoord, inout uint state) {
     ivec2 size = imageSize(resultImage);
@@ -208,7 +288,7 @@ HitInfo ClosestHit(Ray ray) {
         if (current.didCollide && current.dst < closest.dst) closest = current;
     }
 
-    // Meshes
+    // Normal Meshes
     for (int i = 0; i < scene.meshCount; i++) {
         const Mesh m = scene.meshes[i];
 
@@ -225,6 +305,13 @@ HitInfo ClosestHit(Ray ray) {
                 break;
             }
         }
+    }
+
+    // Single BVH Mesh
+    if (scene.meshCount >= 1) {
+        const Mesh m = scene.meshes[0];
+        HitInfo current = RayBVHIntersection(ray, m.material);
+        if (current.didCollide && current.dst < closest.dst) closest = current;
     }
 
     return closest;

@@ -2,7 +2,9 @@
 
 #include <filesystem>
 
+#include "BVH.h"
 #include "ComputeData.h"
+#include "Extern/objload.h"
 #include "Serialize/Base.h"
 
 class Scene {
@@ -23,6 +25,14 @@ public:
     SceneData& GetData() { return sceneData; }
     const SceneData& GetData() const { return sceneData; }
 
+    const BVH_Scene& GetBVH() const { return bvhScene; }
+
+    void CreateBVH(const obj::Model& model);
+
 private:
     SceneData sceneData = {};
+
+    std::unique_ptr<BVH> bvh;
+    std::vector<Triangle> triangles;
+    BVH_Scene bvhScene;
 };

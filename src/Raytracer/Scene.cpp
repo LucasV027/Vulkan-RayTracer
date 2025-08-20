@@ -83,6 +83,10 @@ void Scene::AddMesh(const std::filesystem::path& path) {
         return;
     }
 
+    if (!bvh) {
+        CreateBVH(model);
+    }
+
     const auto& vertices = model.vertex;
     const auto& indices = model.faces.at("default");
     const auto verticesCount = vertices.size() / 3;
@@ -177,5 +181,40 @@ void Scene::RemoveMesh(const uint32_t idx) {
         sceneData.meshes[i].start -= indicesCount;
     }
     sceneData.meshCount--;
+}
+
+void Scene::CreateBVH(const obj::Model& model) {
+    const auto& indices = model.faces.at("default");
+    const auto& vertices = model.vertex;
+
+    triangles.clear();
+    triangles.reserve(indices.size() / 3);
+
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        unsigned short ia = indices[i];
+        unsigned short ib = indices[i + 1];
+        unsigned short ic = indices[i + 2];
+
+        glm::vec3 a(
+            vertices[3 * ia + 0],
+            vertices[3 * ia + 1],
+            vertices[3 * ia + 2]
+        );
+        glm::vec3 b(
+            vertices[3 * ib + 0],
+            vertices[3 * ib + 1],
+            vertices[3 * ib + 2]
+        );
+        glm::vec3 c(
+            vertices[3 * ic + 0],
+            vertices[3 * ic + 1],
+            vertices[3 * ic + 2]
+        );
+
+        triangles.push_back({.a = a, .b = b, .c = c});
+    }
+
+    bvh = std::make_unique<BVH>(triangles, 10);
+    bvhScene = bvh->ToGPUData();
 }
 

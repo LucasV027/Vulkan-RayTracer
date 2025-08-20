@@ -50,6 +50,8 @@ add_executable(${PROJECT_NAME}
         src/Raytracer/Raytracer.cpp
         src/Raytracer/Raytracer.h
         src/Raytracer/ComputeData.h
+        src/Raytracer/BVH.cpp
+        src/Raytracer/BVH.h
 
         src/Controller/CameraController.cpp
         src/Controller/CameraController.h

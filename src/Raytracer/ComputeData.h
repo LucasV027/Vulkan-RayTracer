@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <glm/glm.hpp>
 
 #define LAYOUT_STD140 alignas(16)
@@ -63,3 +65,39 @@ struct LAYOUT_STD140 SceneData {
     uint32_t meshCount;
     uint32_t facesCount;
 };
+
+struct LAYOUT_STD140 Triangle {
+    static constexpr size_t MAX_TRIANGLES = 2000;
+
+    glm::vec3 a;
+    PAD(1);
+    glm::vec3 b;
+    PAD(1);
+    glm::vec3 c;
+    PAD(1);
+};
+
+struct LAYOUT_STD140 BoundingBox {
+    glm::vec3 min;
+    PAD(1);
+    glm::vec3 max;
+    PAD(1);
+};
+
+struct LAYOUT_STD140 BVH_FlattenNode {
+    static constexpr size_t MAX_BVH_NODES = 500;
+
+    BoundingBox bbox;
+
+    uint32_t left;
+    uint32_t right;
+
+    uint32_t start;
+    uint32_t count;
+};
+
+struct LAYOUT_STD140 BVH_Scene {
+    std::vector<BVH_FlattenNode> nodes;
+    std::vector<Triangle> triangles;
+};
+
