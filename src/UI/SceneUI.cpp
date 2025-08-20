@@ -139,7 +139,6 @@ bool UI::DrawScene(Scene& scene) {
         {
             changed |= DrawCollection("Sphere",
                                       scene.GetSpheres(),
-                                      [&scene] { return scene.SphereFull(); },              // Collection full callback
                                       [&scene] { scene.AddSphere(); },                      // Add item callback
                                       DrawSphere,                                           // Draw UI callback
                                       [&scene](const uint32_t i) { scene.RemoveSphere(i); } // Remove callback

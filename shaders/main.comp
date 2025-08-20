@@ -3,10 +3,6 @@
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 /////////// Constants ///////////
-#define MAX_SPHERES 100
-#define MAX_MESHES 10
-#define MAX_TRIANGLES 100
-#define MAX_BVH_NODE 100
 #define BVH_STACK_SIZE 32
 #define MAX_RAY_BOUNCES 5
 #define FLT_MAX 3.402823466e+38
@@ -71,7 +67,7 @@ layout (push_constant) uniform PushData {
 
 layout (set = 0, binding = 0, rgba32f) uniform image2D resultImage;
 
-layout (std140, set = 0, binding = 1) uniform CameraData {
+layout (set = 0, binding = 1, std140) uniform CameraData {
     vec3 cameraPosition;
     vec3 cameraForward;
     vec3 cameraRight;
@@ -79,26 +75,26 @@ layout (std140, set = 0, binding = 1) uniform CameraData {
     float fov;
 };
 
-layout (std140, set = 0, binding = 2) uniform SceneData {
+layout (set = 0, binding = 2, std140) uniform SceneData {
     uint numTriangles;
     uint numSpheres;
     uint numMeshes;
 };
 
-layout (std140, set = 0, binding = 3) uniform Meshes {
-    Mesh meshes[MAX_MESHES];
+layout (set = 0, binding = 3, std430) buffer Meshes {
+    Mesh meshes[];
 };
 
-layout (std140, set = 0, binding = 4) uniform Triangles {
-    Triangle triangles[MAX_TRIANGLES];
+layout (set = 0, binding = 4, std430) buffer Triangles {
+    Triangle triangles[];
 };
 
-layout (std140, set = 0, binding = 5) uniform BVH_Nodes {
-    BVH_Node nodes[MAX_BVH_NODE];
+layout (set = 0, binding = 5, std430) buffer BVH_Nodes {
+    BVH_Node nodes[];
 };
 
-layout (std140, set = 0, binding = 6) uniform Spheres {
-    Sphere spheres[MAX_SPHERES];
+layout (set = 0, binding = 6, std430) buffer Spheres {
+    Sphere spheres[];
 };
 
 /////////// Helpers ///////////

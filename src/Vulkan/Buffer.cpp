@@ -55,32 +55,41 @@ void Buffer::Update(const void* data, const vk::DeviceSize size) const {
         return;
     }
 
-    void* mapped;
-    const vk::Result result = vulkanContext->device.mapMemory(memory, 0, size, {}, &mapped);
+    vk::DeviceSize copySize = size;
+    const void* srcData = data;
+
+    // size == 0 means clear the buffer
+    if (size == 0) copySize = bufferSize;
+
+    void* mapped = nullptr;
+    const vk::Result result = vulkanContext->device.mapMemory(memory, 0, copySize, {}, &mapped);
 
     if (result == vk::Result::eSuccess) {
-        memcpy(mapped, data, size);
+        if (size == 0) {
+            memset(mapped, 0, copySize);
+        } else {
+            memcpy(mapped, srcData, copySize);
+        }
         vulkanContext->device.unmapMemory(memory);
     } else {
         LOGE("Failed to map memory! Error: {}", vk::to_string(result));
     }
 }
 
-BufferWithStaging::BufferWithStaging(const std::shared_ptr<VulkanContext>& context,
-                  const vk::DeviceSize size,
-                  const vk::BufferUsageFlags usage) {
+StorageBuffer::StorageBuffer(const std::shared_ptr<VulkanContext>& context, const vk::DeviceSize initialSize) :
+    context(context) {
     // Buffer device-local (GPU)
     buffer = std::make_unique<Buffer>(
         context,
-        size,
-        usage | vk::BufferUsageFlagBits::eTransferDst,
+        initialSize,
+        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal
     );
 
     // Buffer staging (CPU visible)
     stagingBuffer = std::make_unique<Buffer>(
         context,
-        size,
+        initialSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
@@ -88,9 +97,9 @@ BufferWithStaging::BufferWithStaging(const std::shared_ptr<VulkanContext>& conte
     needsUpload = false;
 }
 
-void BufferWithStaging::Upload(const vk::CommandBuffer commandBuffer,
-                               const vk::PipelineStageFlags2 dstStageMask,
-                               const vk::AccessFlags2 dstAccessMask) const {
+void StorageBuffer::Upload(const vk::CommandBuffer commandBuffer,
+                           const vk::PipelineStageFlags2 dstStageMask,
+                           const vk::AccessFlags2 dstAccessMask) const {
     if (!needsUpload || stagedSize == 0) {
         return;
     }
@@ -120,4 +129,33 @@ void BufferWithStaging::Upload(const vk::CommandBuffer commandBuffer,
     commandBuffer.pipelineBarrier2(depInfo);
 
     needsUpload = false;
+}
+
+void StorageBuffer::EnsureCapacity(const vk::DeviceSize requiredSize) {
+    if (requiredSize <= buffer->GetSize()) return;
+
+    auto growingSize = buffer->GetSize();
+    while (growingSize < requiredSize) {
+        growingSize *= GROW_FACTOR;
+    }
+
+    context->device.waitIdle();
+    changed = true;
+    CreateBuffers(growingSize);
+}
+
+void StorageBuffer::CreateBuffers(vk::DeviceSize size) {
+    buffer = std::make_unique<Buffer>(
+        context,
+        size,
+        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal
+    );
+
+    stagingBuffer = std::make_unique<Buffer>(
+        context,
+        size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+    );
 }

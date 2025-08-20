@@ -27,6 +27,8 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
         raytracer.ClearDirty(DirtyFlags::Size);
     }
 
+    bool recreateDescriptorSet = false;
+
     if (raytracer.IsDirty(DirtyFlags::Camera)) {
         cameraUBO->Update(raytracer.GetCamera().GetData());
         raytracer.ClearDirty(DirtyFlags::Camera);
@@ -38,23 +40,32 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
     }
 
     if (raytracer.IsDirty(DirtyFlags::Meshes)) {
-        // TODO
+        meshesSSBO->Update(raytracer.GetScene().GetMeshes());
+        recreateDescriptorSet |= meshesSSBO->Changed();
         raytracer.ClearDirty(DirtyFlags::Meshes);
     }
 
     if (raytracer.IsDirty(DirtyFlags::Triangles)) {
-        // TODO
+        trianglesSSBO->Update(raytracer.GetScene().GetTriangles());
+        recreateDescriptorSet |= trianglesSSBO->Changed();
         raytracer.ClearDirty(DirtyFlags::Triangles);
     }
 
     if (raytracer.IsDirty(DirtyFlags::BVH_Nodes)) {
-        // TODO
+        bvhNodesSSBO->Update(raytracer.GetScene().GetBVHNodes());
+        recreateDescriptorSet |= bvhNodesSSBO->Changed();
         raytracer.ClearDirty(DirtyFlags::BVH_Nodes);
     }
 
     if (raytracer.IsDirty(DirtyFlags::Spheres)) {
-        spheresUBO->Update(raytracer.GetScene().GetSpheres());
+        spheresSSBO->Update(raytracer.GetScene().GetSpheres());
+        recreateDescriptorSet |= spheresSSBO->Changed();
         raytracer.ClearDirty(DirtyFlags::Spheres);
+    }
+
+    if (recreateDescriptorSet) {
+        CreateDescriptorSet();
+        spheresSSBO->ResetChanged();
     }
 
     pushData.frameIndex++;
@@ -62,6 +73,12 @@ void ComputePipeline::Update(const Raytracer& raytracer) {
 
 void ComputePipeline::Dispatch(const vk::CommandBuffer commandBuffer) const {
     TransitionForCompute(commandBuffer);
+
+    // Upload already check if its needed
+    meshesSSBO->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderRead);
+    trianglesSSBO->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderRead);
+    bvhNodesSSBO->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderRead);
+    spheresSSBO->Upload(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderRead);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
     commandBuffer.pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushData), &pushData);
@@ -77,10 +94,10 @@ void ComputePipeline::CreateDescriptorSetLayout() {
     layoutBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, stage)
                  .AddBinding(1, vk::DescriptorType::eUniformBuffer, stage)
                  .AddBinding(2, vk::DescriptorType::eUniformBuffer, stage)
-                 .AddBinding(3, vk::DescriptorType::eUniformBuffer, stage)
-                 .AddBinding(4, vk::DescriptorType::eUniformBuffer, stage)
-                 .AddBinding(5, vk::DescriptorType::eUniformBuffer, stage)
-                 .AddBinding(6, vk::DescriptorType::eUniformBuffer, stage)
+                 .AddBinding(3, vk::DescriptorType::eStorageBuffer, stage)
+                 .AddBinding(4, vk::DescriptorType::eStorageBuffer, stage)
+                 .AddBinding(5, vk::DescriptorType::eStorageBuffer, stage)
+                 .AddBinding(6, vk::DescriptorType::eStorageBuffer, stage)
                  .AddTo(vulkanContext->device, descriptorSetLayouts);
 }
 
@@ -91,10 +108,10 @@ void ComputePipeline::CreateDescriptorSet() {
     writer.WriteStorageImage(0, outputImageView.get())
           .WriteBuffer(1, cameraUBO->GetHandle(), cameraUBO->GetSize())
           .WriteBuffer(2, sceneDataUBO->GetHandle(), sceneDataUBO->GetSize())
-          .WriteBuffer(3, meshesUBO->GetHandle(), meshesUBO->GetSize())
-          .WriteBuffer(4, trianglesUBO->GetHandle(), trianglesUBO->GetSize())
-          .WriteBuffer(5, bvhNodesUBO->GetHandle(), bvhNodesUBO->GetSize())
-          .WriteBuffer(6, spheresUBO->GetHandle(), spheresUBO->GetSize())
+          .WriteBuffer(3, meshesSSBO->GetHandle(), meshesSSBO->GetSize(), vk::DescriptorType::eStorageBuffer)
+          .WriteBuffer(4, trianglesSSBO->GetHandle(), trianglesSSBO->GetSize(), vk::DescriptorType::eStorageBuffer)
+          .WriteBuffer(5, bvhNodesSSBO->GetHandle(), bvhNodesSSBO->GetSize(), vk::DescriptorType::eStorageBuffer)
+          .WriteBuffer(6, spheresSSBO->GetHandle(), spheresSSBO->GetSize(), vk::DescriptorType::eStorageBuffer)
           .Update(vulkanContext->device, descriptorSet.get());
 }
 
@@ -152,7 +169,6 @@ void ComputePipeline::CreateResources() {
     if (cameraUBO) return;
 
     constexpr auto uniformBufferFlag = vk::BufferUsageFlagBits::eUniformBuffer;
-    constexpr auto storageBufferFlag = vk::BufferUsageFlagBits::eStorageBuffer;
 
     // ---- Binding 1 : Camera uniform buffer ---- //
     cameraUBO = std::make_unique<Buffer>(vulkanContext, sizeof(CameraData), uniformBufferFlag);
@@ -161,20 +177,20 @@ void ComputePipeline::CreateResources() {
     sceneDataUBO = std::make_unique<Buffer>(vulkanContext, sizeof(SceneData), uniformBufferFlag);
 
     // ---- Binding 3 : Meshes uniform buffer ---- //
-    constexpr vk::DeviceSize meshesBufferSize = sizeof(Mesh) * Mesh::MAX_MESHES;
-    meshesUBO = std::make_unique<Buffer>(vulkanContext, meshesBufferSize, uniformBufferFlag);
+    constexpr vk::DeviceSize meshesBufferSize = sizeof(Mesh) * 10;
+    meshesSSBO = std::make_unique<StorageBuffer>(vulkanContext, meshesBufferSize);
 
     // ---- Binding 4: Triangles uniform buffer ---- //
-    constexpr vk::DeviceSize trianglesBufferSize = sizeof(Triangle) * Triangle::MAX_TRIANGLES;
-    trianglesUBO = std::make_unique<Buffer>(vulkanContext, trianglesBufferSize, uniformBufferFlag);
+    constexpr vk::DeviceSize trianglesBufferSize = sizeof(Triangle) * 10;
+    trianglesSSBO = std::make_unique<StorageBuffer>(vulkanContext, trianglesBufferSize);
 
     // ---- Binding 5 : BVH Nodes uniform buffer ---- //
-    constexpr vk::DeviceSize bvhNodesBufferSize = sizeof(BVH_FlattenNode) * BVH_FlattenNode::MAX_BVH_NODES;
-    bvhNodesUBO = std::make_unique<Buffer>(vulkanContext, bvhNodesBufferSize, uniformBufferFlag);
+    constexpr vk::DeviceSize bvhNodesBufferSize = sizeof(BVH_FlattenNode) * 10;
+    bvhNodesSSBO = std::make_unique<StorageBuffer>(vulkanContext, bvhNodesBufferSize);
 
     // ---- Binding 6 : Spheres uniform buffer ---- //
-    constexpr vk::DeviceSize spheresBufferSize = sizeof(Sphere) * Sphere::MAX_SPHERES;
-    spheresUBO = std::make_unique<Buffer>(vulkanContext, spheresBufferSize, uniformBufferFlag);
+    constexpr vk::DeviceSize spheresBufferSize = sizeof(Sphere) * 10;
+    spheresSSBO = std::make_unique<StorageBuffer>(vulkanContext, spheresBufferSize);
 }
 
 void ComputePipeline::ComputeGroupCount() {

@@ -47,13 +47,13 @@ private:
     uint32_t groupCountZ = 1;
 
     // GPU Ressources
-    std::unique_ptr<Image> outputImage;   // Binding 0
-    std::unique_ptr<Buffer> cameraUBO;    // Binding 1
-    std::unique_ptr<Buffer> sceneDataUBO; // Binding 2
-    std::unique_ptr<Buffer> meshesUBO;    // Binding 3
-    std::unique_ptr<Buffer> trianglesUBO; // Binding 4
-    std::unique_ptr<Buffer> bvhNodesUBO;  // Binding 5
-    std::unique_ptr<Buffer> spheresUBO;   // Binding 6
+    std::unique_ptr<Image> outputImage;          // Binding 0
+    std::unique_ptr<Buffer> cameraUBO;           // Binding 1
+    std::unique_ptr<Buffer> sceneDataUBO;        // Binding 2
+    std::unique_ptr<StorageBuffer> meshesSSBO;    // Binding 3
+    std::unique_ptr<StorageBuffer> trianglesSSBO; // Binding 4
+    std::unique_ptr<StorageBuffer> bvhNodesSSBO;  // Binding 5
+    std::unique_ptr<StorageBuffer> spheresSSBO;  // Binding 6
     PushData pushData = {0};
 
     vk::UniqueImageView outputImageView;

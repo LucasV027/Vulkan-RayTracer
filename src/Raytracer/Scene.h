@@ -19,9 +19,11 @@ public:
 
     const SceneData& GetSceneData() const;
 
-    bool SphereFull() const { return spheres.size() == Sphere::MAX_SPHERES; }
-
     const std::vector<Sphere>& GetSpheres() const { return spheres; }
+    const std::vector<Mesh>& GetMeshes() const { return meshes; }
+    const std::vector<Triangle>& GetTriangles() const { return triangles; }
+    const std::vector<BVH_FlattenNode>& GetBVHNodes() const { return bvhNodes; }
+
     std::vector<Sphere>& GetSpheres() { return spheres; }
 
 private:

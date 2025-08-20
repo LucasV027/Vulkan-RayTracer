@@ -4,12 +4,11 @@
 
 #include <glm/glm.hpp>
 
-#define LAYOUT_STD140 alignas(16)
 #define PAD(n) float UNIQUE(_pad, __LINE__)[n]
 #define UNIQUE(base, line) UNIQUE_NAME(base, line)
 #define UNIQUE_NAME(base, line) base##line
 
-struct LAYOUT_STD140 CameraData {
+struct alignas(16) CameraData {
     glm::vec3 cameraPosition;
     PAD(1);
 
@@ -23,31 +22,27 @@ struct LAYOUT_STD140 CameraData {
     float fovRad;
 };
 
-struct LAYOUT_STD140 Material {
-    glm::vec3 color;
-    float smoothness;
-    glm::vec3 emissionColor;
-    float emissionStrength;
-};
-
-struct LAYOUT_STD140 SceneData {
+struct alignas(16) SceneData {
     uint32_t numTriangles;
     uint32_t numSpheres;
     uint32_t numMeshes;
     PAD(1);
 };
 
-struct LAYOUT_STD140 Mesh {
-    static constexpr size_t MAX_MESHES = 10;
+struct alignas(16) Material {
+    glm::vec3 color;
+    float smoothness;
+    glm::vec3 emissionColor;
+    float emissionStrength;
+};
 
+struct alignas(16) Mesh {
     uint32_t start;
     PAD(3);
     Material mat;
 };
 
-struct LAYOUT_STD140 Triangle {
-    static constexpr size_t MAX_TRIANGLES = 100;
-
+struct alignas(16) Triangle {
     glm::vec3 a;
     PAD(1);
     glm::vec3 b;
@@ -56,16 +51,14 @@ struct LAYOUT_STD140 Triangle {
     PAD(1);
 };
 
-struct LAYOUT_STD140 BoundingBox {
+struct alignas(16) BoundingBox {
     glm::vec3 min;
     PAD(1);
     glm::vec3 max;
     PAD(1);
 };
 
-struct LAYOUT_STD140 BVH_FlattenNode {
-    static constexpr size_t MAX_BVH_NODES = 100;
-
+struct alignas(16) BVH_FlattenNode {
     BoundingBox bbox;
 
     uint32_t left;
@@ -75,14 +68,7 @@ struct LAYOUT_STD140 BVH_FlattenNode {
     uint32_t count;
 };
 
-struct LAYOUT_STD140 BVH_Scene {
-    std::vector<BVH_FlattenNode> nodes;
-    std::vector<Triangle> triangles;
-};
-
-struct LAYOUT_STD140 Sphere {
-    static constexpr size_t MAX_SPHERES = 100;
-
+struct alignas(16) Sphere {
     glm::vec3 pos;
     float rad;
     Material mat;

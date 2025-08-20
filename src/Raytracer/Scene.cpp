@@ -6,8 +6,6 @@
 #include "Core/Math.h"
 
 Scene::Scene() {
-    spheres.reserve(Sphere::MAX_SPHERES);
-
     spheres.emplace_back(Sphere{
         .pos = {0.0f, 0.0f, -5.0f},
         .rad = 1.0f,
@@ -43,8 +41,6 @@ Scene::Scene() {
 }
 
 void Scene::AddSphere() {
-    if (SphereFull()) return;
-
     spheres.emplace_back(Sphere{
         .pos = glm::vec3(0.0f, 0.0f, -5.0f) + Math::RandomVec3() * 3.f,
         .rad = 1.0f,
@@ -63,8 +59,6 @@ void Scene::RemoveSphere(const uint32_t idx) {
 }
 
 const SceneData& Scene::GetSceneData() const {
-    sceneData.numMeshes = meshes.size();
     sceneData.numSpheres = spheres.size();
-    sceneData.numTriangles = triangles.size();
     return sceneData;
 }

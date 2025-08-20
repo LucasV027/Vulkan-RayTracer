@@ -21,6 +21,11 @@ struct BVH_Node {
     size_t Flatten(std::vector<BVH_FlattenNode>& nodes) const;
 };
 
+struct BVH_Scene {
+    std::vector<BVH_FlattenNode> nodes;
+    std::vector<Triangle> triangles;
+};
+
 class BVH {
 public:
     explicit BVH(const std::vector<Triangle>& triangles, size_t maxDepth = 10);
@@ -43,6 +48,7 @@ private:
                                               std::vector<Triangle>& out);
 
     static glm::vec3 GetCenter(const Triangle& triangle);
+
 private:
     BVH_Node* root;
 };

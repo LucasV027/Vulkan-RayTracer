@@ -14,10 +14,9 @@ namespace UI {
                             const std::filesystem::path& extension,
                             const std::function<void(const std::filesystem::path&)>& callback);
 
-    template <typename T, typename FullFunc, typename AddFunc, typename DrawFunc, typename RemoveFunc>
+    template <typename T, typename AddFunc, typename DrawFunc, typename RemoveFunc>
     bool DrawCollection(const char* label,
                         std::vector<T>& items,
-                        FullFunc fullFunc,
                         AddFunc addFunc,
                         DrawFunc drawFunc,
                         RemoveFunc removeFunc) {
@@ -29,12 +28,10 @@ namespace UI {
         {
             ImGui::Text("%s[%u]", label, items.size());
 
-            if (!fullFunc()) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("+")) {
-                    addFunc();
-                    changed = true;
-                }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("+")) {
+                addFunc();
+                changed = true;
             }
         }
 
